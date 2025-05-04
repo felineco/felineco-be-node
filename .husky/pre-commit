@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "Running pre-commit checks..."
+
+# Determine OS and run appropriate command
+case "$(uname -s)" in
+  CYGWIN*|MINGW*|MSYS*|Windows*)
+    # Windows-specific commands if needed
+    npx lint-staged
+    ;;
+  *)
+    # Linux/macOS commands
+    npx lint-staged
+    ;;
+esac
