@@ -25,7 +25,7 @@ The codebase natively support:
 
 ## Usage
 
-Create and `.env` file similar to `.env.example`
+Create a `.env` file similar to `.env.example`
 
 ### Development
 
