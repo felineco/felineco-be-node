@@ -20,10 +20,10 @@ export class AppLoggerService implements LoggerService {
 
   constructor(@Inject(ConfigService) private configService?: ConfigService) {
     this.logLevels =
-      this.configService?.get<LogLevel[]>('logging.levels') ||
+      this.configService?.get<LogLevel[]>('logging.levels') ??
       defaultLogLevels[ENV.DEVELOPMENT];
     this.maxObjectSize =
-      this.configService?.get<number>('logging.options.maxObjectSize') || 1000;
+      this.configService?.get<number>('logging.options.maxObjectSize') ?? 1000;
 
     this.logger = new ConsoleLogger();
     this.logger.setLogLevels(this.logLevels);
@@ -38,35 +38,35 @@ export class AppLoggerService implements LoggerService {
     if (typeof message === 'object') {
       message = this.formatObject(message);
     }
-    this.logger.log(message, contextOverride || this.context);
+    this.logger.log(message, contextOverride ?? this.context);
   }
 
   error(message: any, trace?: string, contextOverride?: string) {
     if (typeof message === 'object') {
       message = this.formatObject(message);
     }
-    this.logger.error(message, trace, contextOverride || this.context);
+    this.logger.error(message, trace, contextOverride ?? this.context);
   }
 
   warn(message: any, contextOverride?: string) {
     if (typeof message === 'object') {
       message = this.formatObject(message);
     }
-    this.logger.warn(message, contextOverride || this.context);
+    this.logger.warn(message, contextOverride ?? this.context);
   }
 
   debug(message: any, contextOverride?: string) {
     if (typeof message === 'object') {
       message = this.formatObject(message);
     }
-    this.logger.debug(message, contextOverride || this.context);
+    this.logger.debug(message, contextOverride ?? this.context);
   }
 
   verbose(message: any, contextOverride?: string) {
     if (typeof message === 'object') {
       message = this.formatObject(message);
     }
-    this.logger.verbose(message, contextOverride || this.context);
+    this.logger.verbose(message, contextOverride ?? this.context);
   }
 
   // Helper to format objects and limit their size
