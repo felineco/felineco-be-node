@@ -2,7 +2,7 @@
 
 My implementation of a codebase in NestJS for a project quick start.
 
-Give me a **star** if you like it!
+Give me a **Star** if you like it!
 
 ## Features
 
