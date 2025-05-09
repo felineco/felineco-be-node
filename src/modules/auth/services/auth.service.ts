@@ -96,6 +96,19 @@ export class AuthService {
     // Get permissions for the user
     const permissions = await this.usersService.getUserPermissions(userId);
 
+    // Get token expiration settings
+    const accessTokenExpiresIn =
+      this.configService.get<string>('auth.jwt.expiresIn') ?? '1d';
+    const refreshTokenExpiresIn =
+      this.configService.get<string>('auth.jwt.refreshExpiresIn') ?? '7d';
+
+    // Calculate expiration timestamps
+    const accessTokenExpiresAt =
+      this.calculateExpirationDate(accessTokenExpiresIn);
+    const refreshTokenExpiresAt = this.calculateExpirationDate(
+      refreshTokenExpiresIn,
+    );
+
     // Prepare payload for access token
     const payload: JwtPayload = {
       sub: userId,
@@ -107,7 +120,7 @@ export class AuthService {
     // Generate access token
     const accessToken = this.jwtService.sign(payload, {
       secret,
-      expiresIn: this.configService.get<string>('auth.jwt.expiresIn') ?? '1d',
+      expiresIn: accessTokenExpiresIn,
     });
 
     // Generate refresh token with longer expiry and different payload
@@ -115,14 +128,44 @@ export class AuthService {
       { sub: userId, tokenType: 'refresh' },
       {
         secret,
-        expiresIn:
-          this.configService.get<string>('auth.jwt.refreshExpiresIn') ?? '7d',
+        expiresIn: refreshTokenExpiresIn,
       },
     );
 
     return {
       accessToken,
       refreshToken,
+      accessTokenExpiresAt,
+      refreshTokenExpiresAt,
     };
+  }
+
+  private calculateExpirationDate(duration: string): Date {
+    // Parse duration like '1d', '7d', '15m', etc.
+    // Parse duration like '15d', '7d', '30m', etc.
+    const match = duration.match(/^(\d+)([smhd])$/);
+
+    if (!match) {
+      // Default to 1 day if format is invalid
+      return new Date(Date.now() + 24 * 60 * 60 * 1000);
+    }
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    const now = new Date();
+
+    switch (unit) {
+      case 'd':
+        return new Date(now.getTime() + value * 24 * 60 * 60 * 1000);
+      case 'h':
+        return new Date(now.getTime() + value * 60 * 60 * 1000);
+      case 'm':
+        return new Date(now.getTime() + value * 60 * 1000);
+      case 's':
+        return new Date(now.getTime() + value * 1000);
+      default:
+        return new Date(now.getTime() + 24 * 60 * 60 * 1000); // Default 1 day
+    }
   }
 }
