@@ -142,7 +142,6 @@ export class AuthService {
 
   private calculateExpirationDate(duration: string): Date {
     // Parse duration like '1d', '7d', '15m', etc.
-    // Parse duration like '15d', '7d', '30m', etc.
     const match = duration.match(/^(\d+)([smhd])$/);
 
     if (!match) {
