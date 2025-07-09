@@ -1,6 +1,6 @@
 // src/modules/users/dtos/requests/remove-roles.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsArray, IsMongoId, IsNotEmpty } from 'class-validator';
 
 export class RemoveRolesDto {
   @ApiProperty({
@@ -10,6 +10,6 @@ export class RemoveRolesDto {
   })
   @IsArray()
   @IsNotEmpty()
-  @IsUUID('4', { each: true })
+  @IsMongoId({ each: true })
   roleIds: string[];
 }

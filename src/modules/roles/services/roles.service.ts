@@ -1,26 +1,29 @@
 // src/modules/roles/services/roles.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, In, Repository } from 'typeorm';
-import { Role } from '../entities/role.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import mongoose, { Model } from 'mongoose';
 import {
-  PagingQueryOptions,
-  toTypeOrmSortOrder,
-} from '../../../common/dtos/page-query-options.dto';
+  Permission,
+  PermissionDocument,
+} from 'src/modules/permissions/schemas/permission.schema';
+import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
 import {
   PagingResponse,
   PagingResponseMeta,
 } from '../../../common/dtos/page-response.dto';
-import { TABLE_NAME } from 'src/common/enums/table-name.enum';
-import { Permission } from 'src/modules/permissions/entities/permission.entity';
+import {
+  Role,
+  RoleDocument,
+  RoleWWithPopulatePermission,
+} from '../schemas/role.schema';
 
 @Injectable()
 export class RolesService {
   constructor(
-    @InjectRepository(Role)
-    private rolesRepository: Repository<Role>,
-    @InjectRepository(Permission)
-    private permissionsRepository: Repository<Permission>,
+    @InjectModel(Role.name)
+    private roleModel: Model<RoleDocument>,
+    @InjectModel(Permission.name)
+    private permissionModel: Model<PermissionDocument>,
   ) {}
 
   async create(roleData: {
@@ -28,11 +31,11 @@ export class RolesService {
     permissionIds?: string[];
   }): Promise<Role> {
     // Check if role with the same name already exists
-    const existingRole = await this.rolesRepository.findOne({
-      where: {
+    const existingRole = await this.roleModel
+      .findOne({
         roleName: roleData.roleName,
-      },
-    });
+      })
+      .exec();
 
     if (existingRole) {
       throw new BadRequestException(
@@ -40,53 +43,46 @@ export class RolesService {
       );
     }
 
-    const role = this.rolesRepository.create({
-      roleName: roleData.roleName,
-    });
-
-    // If permission IDs are provided, fetch and assign them
+    // Validate permission IDs if provided
     if (roleData.permissionIds && roleData.permissionIds.length > 0) {
-      const permissions = await this.permissionsRepository.find({
-        where: { id: In(roleData.permissionIds) },
-      });
+      const permissions = await this.permissionModel
+        .find({ _id: { $in: roleData.permissionIds } })
+        .exec();
 
-      const foundIdsSet = new Set(permissions.map((p) => p.id));
-      const notFoundIds = roleData.permissionIds.filter(
-        (id) => !foundIdsSet.has(id),
-      );
-
-      if (notFoundIds.length > 0) {
+      if (permissions.length !== roleData.permissionIds.length) {
+        const foundIds = permissions.map((p) => p._id.toString());
+        const notFoundIds = roleData.permissionIds.filter(
+          (id) => !foundIds.includes(id),
+        );
         throw new BadRequestException(
           `Some permission IDs were not found: ${notFoundIds.join(', ')}`,
         );
       }
-
-      role.permissions = permissions;
     }
-    return await this.rolesRepository.save(role);
+
+    const role = new this.roleModel({
+      roleName: roleData.roleName,
+      permissions: roleData.permissionIds ?? [],
+    });
+
+    return await role.save();
   }
 
   async findAll(
     pageOptions: PagingQueryOptions,
-  ): Promise<PagingResponse<Role>> {
-    const queryBuilder = this.rolesRepository.createQueryBuilder(
-      TABLE_NAME.ROLE,
-    );
+  ): Promise<PagingResponse<RoleWWithPopulatePermission>> {
+    const [sortField, sortOrder] = pageOptions.mongoSortParams;
 
-    // Explicitly join and select the permissions
-    queryBuilder.leftJoinAndSelect(
-      `${TABLE_NAME.ROLE}.permissions`,
-      'permissions',
-    );
-
-    const [sortField, sortOrder] = pageOptions.sortParams;
-    queryBuilder
-      .orderBy(`${TABLE_NAME.ROLE}.${sortField}`, toTypeOrmSortOrder(sortOrder))
-      .skip(pageOptions.skip)
-      .take(pageOptions.limit);
-
-    const itemCount = await queryBuilder.getCount();
-    const { entities } = await queryBuilder.getRawAndEntities();
+    const [roles, itemCount] = await Promise.all([
+      this.roleModel
+        .find()
+        .populate<{ permissions: Permission[] }>('permissions')
+        .sort({ [sortField]: sortOrder })
+        .skip(pageOptions.skip)
+        .limit(pageOptions.limit)
+        .exec(),
+      this.roleModel.countDocuments().exec(),
+    ]);
 
     const pageMetaDto = new PagingResponseMeta({
       page: pageOptions.page,
@@ -94,13 +90,14 @@ export class RolesService {
       itemCount,
     });
 
-    return new PagingResponse(entities, pageMetaDto);
+    return new PagingResponse(roles, pageMetaDto);
   }
 
-  async findOne(id: string): Promise<Role> {
-    const role = await this.rolesRepository.findOne({
-      where: { id },
-    });
+  async findOne(id: string): Promise<RoleWWithPopulatePermission> {
+    const role = await this.roleModel
+      .findById(id)
+      .populate<{ permissions: Permission[] }>('permissions')
+      .exec();
 
     if (!role) {
       throw new BadRequestException(`Role with ID '${id}' not found`);
@@ -111,109 +108,141 @@ export class RolesService {
 
   async update(
     id: string,
-    roleData: DeepPartial<Role>,
+    roleData: Partial<Role>,
     permissionIds?: string[],
-  ): Promise<Role> {
-    const role = await this.findOne(id);
+  ): Promise<RoleWWithPopulatePermission> {
+    const role = await this.roleModel.findById(id).exec();
 
-    // Update basic role properties
-    if (roleData.roleName && roleData.roleName !== role.roleName) {
-      const existingRole = await this.rolesRepository.findOne({
-        where: { roleName: roleData.roleName },
-      });
+    if (!role) {
+      throw new BadRequestException(`Role with ID '${id}' not found`);
+    }
 
-      if (existingRole && existingRole.id !== id) {
+    // Check for duplicate role name if updating
+    if (
+      (roleData.roleName ?? '') !== '' &&
+      roleData.roleName !== role.roleName
+    ) {
+      const existingRole = await this.roleModel
+        .findOne({
+          roleName: roleData.roleName,
+          _id: { $ne: id },
+        })
+        .exec();
+
+      if (existingRole) {
         throw new BadRequestException(
           `Role with name '${roleData.roleName}' already exists`,
         );
       }
     }
 
-    // Update role's basic properties
-    const updatedRole = this.rolesRepository.merge(role, roleData);
-
-    // If permission IDs are provided, update permissions
+    // Validate permission IDs if provided
     if (permissionIds) {
-      const permissions = await this.permissionsRepository.find({
-        where: { id: In(permissionIds) },
-      });
+      const permissions = await this.permissionModel
+        .find({ _id: { $in: permissionIds } })
+        .exec();
 
-      const foundIdsSet = new Set(permissions.map((p) => p.id));
-      const notFoundIds = permissionIds.filter((id) => !foundIdsSet.has(id));
-
-      if (notFoundIds.length > 0) {
+      if (permissions.length !== permissionIds.length) {
+        const foundIds = permissions.map((p) => p._id.toString());
+        const notFoundIds = permissionIds.filter(
+          (id) => !foundIds.includes(id),
+        );
         throw new BadRequestException(
           `Some permission IDs were not found: ${notFoundIds.join(', ')}`,
         );
       }
 
-      updatedRole.permissions = permissions;
+      roleData.permissions = permissionIds.map(
+        (id) => new mongoose.Types.ObjectId(id),
+      );
     }
 
-    return await this.rolesRepository.save(updatedRole);
-  }
+    const updatedRole = await this.roleModel
+      .findByIdAndUpdate(id, roleData, { new: true })
+      .populate<{ permissions: Permission[] }>('permissions')
+      .exec();
 
-  async remove(id: string): Promise<void> {
-    const role = await this.rolesRepository.findOne({
-      where: { id },
-      relations: { permissions: true, users: true },
-    });
-
-    if (!role) {
+    if (!updatedRole) {
       throw new BadRequestException(`Role with ID '${id}' not found`);
     }
 
-    // Clear both the permissions and users relationships
-    role.permissions = [];
-    role.users = [];
-
-    // Save to clear the join tables first
-    await this.rolesRepository.save(role);
-
-    // Then remove the role
-    await this.rolesRepository.remove(role);
+    return updatedRole;
   }
 
-  async addPermissions(roleId: string, permissionIds: string[]): Promise<Role> {
-    const role = await this.findOne(roleId);
-    const newPermissions = await this.permissionsRepository.find({
-      where: { id: In(permissionIds) },
-    });
+  async remove(id: string): Promise<void> {
+    const result = await this.roleModel.findByIdAndDelete(id).exec();
 
-    const foundIdsSet = new Set(newPermissions.map((p) => p.id));
-    if (newPermissions.length !== permissionIds.length) {
-      const notFoundIds = permissionIds.filter((id) => !foundIdsSet.has(id));
+    if (!result) {
+      throw new BadRequestException(`Role with ID '${id}' not found`);
+    }
+  }
 
-      if (notFoundIds.length > 0) {
-        throw new BadRequestException(
-          `Some permission IDs were not found: ${notFoundIds.join(', ')}`,
-        );
-      }
+  async addPermissions(
+    roleId: string,
+    permissionIds: string[],
+  ): Promise<RoleWWithPopulatePermission> {
+    const role = await this.roleModel.findById(roleId).exec();
+
+    if (!role) {
+      throw new BadRequestException(`Role with ID '${roleId}' not found`);
     }
 
-    // Keep existing permissions that aren't in the new set
-    const existingPermissions = role.permissions.filter(
-      (p) => !foundIdsSet.has(p.id),
+    // Validate permission IDs
+    const permissions = await this.permissionModel
+      .find({ _id: { $in: permissionIds } })
+      .exec();
+
+    if (permissions.length !== permissionIds.length) {
+      const foundIds = permissions.map((p) => p._id.toString());
+      const notFoundIds = permissionIds.filter((id) => !foundIds.includes(id));
+      throw new BadRequestException(
+        `Some permission IDs were not found: ${notFoundIds.join(', ')}`,
+      );
+    }
+
+    // Add new permissions (avoiding duplicates)
+    const currentPermissionIds = role.permissions.map(
+      (p: mongoose.Types.ObjectId) => {
+        return p.toString();
+      },
     );
 
-    // Combine existing permissions with new ones
-    role.permissions = [...existingPermissions, ...newPermissions];
-    return await this.rolesRepository.save(role);
+    const newPermissionIds = permissionIds.filter(
+      (id) => !currentPermissionIds.includes(id),
+    );
+
+    const updatedRole = await this.roleModel
+      .findByIdAndUpdate(
+        roleId,
+        { $addToSet: { permissions: { $each: newPermissionIds } } },
+        { new: true },
+      )
+      .populate<{ permissions: Permission[] }>('permissions')
+      .exec();
+    if (!updatedRole) {
+      throw new BadRequestException(`Role with ID '${roleId}' not found`);
+    }
+
+    return updatedRole;
   }
 
   async removePermissions(
     roleId: string,
     permissionIds: string[],
-  ): Promise<Role> {
-    const role = await this.findOne(roleId);
+  ): Promise<RoleWWithPopulatePermission> {
+    const updatedRole = await this.roleModel
+      .findByIdAndUpdate(
+        roleId,
+        { $pull: { permissions: { $in: permissionIds } } },
+        { new: true },
+      )
+      .populate<{ permissions: Permission[] }>('permissions')
+      .exec();
 
-    const excludePermissionSet = new Set(permissionIds);
+    if (!updatedRole) {
+      throw new BadRequestException(`Role with ID '${roleId}' not found`);
+    }
 
-    // Filter out the permissions to be removed
-    role.permissions = role.permissions.filter(
-      (permission) => !excludePermissionSet.has(permission.id),
-    );
-
-    return await this.rolesRepository.save(role);
+    return updatedRole;
   }
 }

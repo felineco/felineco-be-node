@@ -1,13 +1,13 @@
 // src/modules/health/health.controller.ts
 import { Controller, Get } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import {
+  DiskHealthIndicator,
   HealthCheck,
   HealthCheckService,
-  TypeOrmHealthIndicator,
   MemoryHealthIndicator,
-  DiskHealthIndicator,
+  MongooseHealthIndicator,
 } from '@nestjs/terminus';
-import { ApiTags } from '@nestjs/swagger';
 import * as os from 'os';
 
 @ApiTags('Health')
@@ -15,7 +15,7 @@ import * as os from 'os';
 export class HealthController {
   constructor(
     private health: HealthCheckService,
-    private db: TypeOrmHealthIndicator,
+    private db: MongooseHealthIndicator,
     private memory: MemoryHealthIndicator,
     private disk: DiskHealthIndicator,
   ) {}
@@ -32,7 +32,7 @@ export class HealthController {
 
     return this.health.check([
       // Check database connection
-      () => this.db.pingCheck('database', { timeout: 5000 }),
+      () => this.db.pingCheck('mongodb', { timeout: 5000 }),
 
       // Check memory usage
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024), // 300MB

@@ -1,15 +1,15 @@
 // src/modules/roles/dtos/requests/remove-permissions.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsArray, IsMongoId, IsNotEmpty } from 'class-validator';
 
 export class RemovePermissionsDto {
   @ApiProperty({
-    example: ['123e4567-e89b-12d3-a456-426614174000'],
+    example: ['507f191e810c19729de860ea', '507f191e810c19729de860eb'],
     description: 'List of permission IDs to remove from the role',
     type: [String],
   })
   @IsArray()
   @IsNotEmpty()
-  @IsUUID('4', { each: true })
+  @IsMongoId({ each: true })
   permissionIds: string[];
 }

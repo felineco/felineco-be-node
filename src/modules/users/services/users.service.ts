@@ -1,28 +1,32 @@
 // src/modules/users/services/users.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, In, Repository } from 'typeorm';
-import { User } from '../entities/user.entity';
-import {
-  PagingQueryOptions,
-  toTypeOrmSortOrder,
-} from '../../../common/dtos/page-query-options.dto';
-import {
-  PagingResponseMeta,
-  PagingResponse,
-} from '../../../common/dtos/page-response.dto';
-import { TABLE_NAME } from 'src/common/enums/table-name.enum';
-import { Role } from 'src/modules/roles/entities/role.entity';
-import { CryptoService } from 'src/common/services/crypto.service';
+import { InjectModel } from '@nestjs/mongoose';
+import mongoose, { Model } from 'mongoose';
 import { AccessControl } from 'src/common/decorators/authorization-policy.decorator.ts';
+import { CryptoService } from 'src/common/services/crypto.service';
+import {
+  Role,
+  RoleDocument,
+  RoleWWithPopulatePermission,
+} from 'src/modules/roles/schemas/role.schema';
+import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
+import {
+  PagingResponse,
+  PagingResponseMeta,
+} from '../../../common/dtos/page-response.dto';
+import {
+  User,
+  UserDocument,
+  UserWithPopulateRoleAndPermission,
+} from '../schemas/user.schema';
 
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-    @InjectRepository(Role)
-    private rolesRepository: Repository<Role>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
+    @InjectModel(Role.name)
+    private roleModel: Model<RoleDocument>,
     private cryptoService: CryptoService,
   ) {}
 
@@ -32,59 +36,64 @@ export class UsersService {
     roleIds?: string[];
   }): Promise<User> {
     // Check if the user already exists
-    const exist = await this.usersRepository.exists({
-      where: { email: userData.email },
-    });
-    if (exist) {
+    const existingUser = await this.userModel
+      .findOne({
+        email: userData.email,
+      })
+      .exec();
+
+    if (existingUser) {
       throw new BadRequestException(
         `User with email '${userData.email}' already exists`,
       );
     }
 
-    const user = this.usersRepository.create({
-      email: userData.email,
-      hashPassword: await this.cryptoService.hashPassword(userData.password),
-    });
-
-    // If role IDs are provided, fetch and assign them
+    // Validate role IDs if provided
     if (userData.roleIds && userData.roleIds.length > 0) {
-      const roles = await this.rolesRepository.find({
-        where: { id: In(userData.roleIds) },
-      });
+      const roles = await this.roleModel
+        .find({ _id: { $in: userData.roleIds } })
+        .exec();
 
-      const foundIdsSet = new Set(roles.map((r) => r.id));
-      const notFoundIds = userData.roleIds.filter((id) => !foundIdsSet.has(id));
-
-      if (notFoundIds.length > 0) {
+      if (roles.length !== userData.roleIds.length) {
+        const foundIds = roles.map((r) => r._id.toString());
+        const notFoundIds = userData.roleIds.filter(
+          (id) => !foundIds.includes(id),
+        );
         throw new BadRequestException(
           `Some role IDs were not found: ${notFoundIds.join(', ')}`,
         );
       }
-
-      user.roles = roles;
     }
 
-    return this.usersRepository.save(user);
+    const user = new this.userModel({
+      email: userData.email,
+      hashPassword: await this.cryptoService.hashPassword(userData.password),
+      roles: userData.roleIds ?? [],
+    });
+
+    return await user.save();
   }
 
   async findAll(
     pageOptions: PagingQueryOptions,
-  ): Promise<PagingResponse<User>> {
-    const queryBuilder = this.usersRepository.createQueryBuilder(
-      TABLE_NAME.USER,
-    );
+  ): Promise<PagingResponse<UserWithPopulateRoleAndPermission>> {
+    const [sortField, sortOrder] = pageOptions.mongoSortParams;
 
-    // Join roles
-    queryBuilder.leftJoinAndSelect(`${TABLE_NAME.USER}.roles`, 'roles');
-
-    const [sortField, sortOrder] = pageOptions.sortParams;
-    queryBuilder
-      .orderBy(`${TABLE_NAME.USER}.${sortField}`, toTypeOrmSortOrder(sortOrder))
-      .skip(pageOptions.skip)
-      .take(pageOptions.limit);
-
-    const itemCount = await queryBuilder.getCount();
-    const { entities } = await queryBuilder.getRawAndEntities();
+    const [users, itemCount] = await Promise.all([
+      this.userModel
+        .find()
+        .populate<{ roles: RoleWWithPopulatePermission[] }>({
+          path: 'roles',
+          populate: {
+            path: 'permissions',
+          },
+        })
+        .sort({ [sortField]: sortOrder })
+        .skip(pageOptions.skip)
+        .limit(pageOptions.limit)
+        .exec(),
+      this.userModel.countDocuments().exec(),
+    ]);
 
     const pageMetaDto = new PagingResponseMeta({
       page: pageOptions.page,
@@ -92,11 +101,19 @@ export class UsersService {
       itemCount,
     });
 
-    return new PagingResponse(entities, pageMetaDto);
+    return new PagingResponse(users, pageMetaDto);
   }
 
-  async findOne(id: string): Promise<User> {
-    const user = await this.usersRepository.findOne({ where: { id } });
+  async findOne(id: string): Promise<UserWithPopulateRoleAndPermission> {
+    const user = await this.userModel
+      .findById(id)
+      .populate<{ roles: RoleWWithPopulatePermission[] }>({
+        path: 'roles',
+        populate: {
+          path: 'permissions',
+        },
+      })
+      .exec();
 
     if (!user) {
       throw new BadRequestException(`User with ID "${id}" not found`);
@@ -106,8 +123,16 @@ export class UsersService {
   }
 
   // NEEDED FOR LOCAL AUTHENTICATION STRATEGY
-  async findByEmail(email: string): Promise<User> {
-    const user = await this.usersRepository.findOne({ where: { email } });
+  async findByEmail(email: string): Promise<UserWithPopulateRoleAndPermission> {
+    const user = await this.userModel
+      .findOne({ email })
+      .populate<{ roles: RoleWWithPopulatePermission[] }>({
+        path: 'roles',
+        populate: {
+          path: 'permissions',
+        },
+      })
+      .exec();
 
     if (!user) {
       throw new BadRequestException(`User with email '${email}' not found`);
@@ -118,106 +143,146 @@ export class UsersService {
 
   async update(
     id: string,
-    userData: DeepPartial<User> & { password?: string },
+    userData: Partial<User> & { password?: string },
     roleIds?: string[],
-  ): Promise<User> {
-    const user = await this.findOne(id);
+  ): Promise<UserWithPopulateRoleAndPermission> {
+    const user = await this.userModel.findById(id).exec();
+
+    if (!user) {
+      throw new BadRequestException(`User with ID "${id}" not found`);
+    }
 
     // If password is included in userData, hash it
-    if (userData.password) {
+    if (userData.password !== undefined) {
       userData.hashPassword = await this.cryptoService.hashPassword(
         userData.password,
       );
     }
     delete userData.password; // Remove the plaintext password
 
-    // Update basic user properties
-    const updatedUser = this.usersRepository.merge(user, userData);
-
-    // If role IDs are provided, update roles
+    // Validate role IDs if provided
     if (roleIds) {
-      const roles = await this.rolesRepository.find({
-        where: { id: In(roleIds) },
-      });
+      const roles = await this.roleModel.find({ _id: { $in: roleIds } }).exec();
 
-      const foundIdsSet = new Set(roles.map((r) => r.id));
-      const notFoundIds = roleIds.filter((id) => !foundIdsSet.has(id));
-
-      if (notFoundIds.length > 0) {
+      if (roles.length !== roleIds.length) {
+        const foundIds = roles.map((r) => r._id.toString());
+        const notFoundIds = roleIds.filter((id) => !foundIds.includes(id));
         throw new BadRequestException(
           `Some role IDs were not found: ${notFoundIds.join(', ')}`,
         );
       }
 
-      updatedUser.roles = roles;
+      userData.roles = roleIds.map((id) => new mongoose.Types.ObjectId(id));
     }
 
-    return this.usersRepository.save(updatedUser);
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(id, userData, { new: true })
+      .populate<{ roles: RoleWWithPopulatePermission[] }>({
+        path: 'roles',
+        populate: {
+          path: 'permissions',
+        },
+      })
+      .exec();
+
+    if (!updatedUser) {
+      throw new BadRequestException(`User with ID "${id}" not found`);
+    }
+
+    return updatedUser;
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    const result = await this.userModel.findByIdAndDelete(id).exec();
 
-    // Clear roles association before removing
-    user.roles = [];
-    await this.usersRepository.save(user);
-
-    await this.usersRepository.remove(user);
+    if (!result) {
+      throw new BadRequestException(`User with ID "${id}" not found`);
+    }
   }
 
-  async addRoles(userId: string, roleIds: string[]): Promise<User> {
-    const user = await this.findOne(userId);
-    const newRoles = await this.rolesRepository.find({
-      where: { id: In(roleIds) },
-    });
+  async addRoles(
+    userId: string,
+    roleIds: string[],
+  ): Promise<UserWithPopulateRoleAndPermission> {
+    const user = await this.userModel.findById(userId).exec();
 
-    const foundIdsSet = new Set(newRoles.map((r) => r.id));
-    if (newRoles.length !== roleIds.length) {
-      const notFoundIds = roleIds.filter((id) => !foundIdsSet.has(id));
-
-      if (notFoundIds.length > 0) {
-        throw new BadRequestException(
-          `Some role IDs were not found: ${notFoundIds.join(', ')}`,
-        );
-      }
+    if (!user) {
+      throw new BadRequestException(`User with ID "${userId}" not found`);
     }
 
-    // Keep existing roles that aren't in the new set
-    const existingRoles = user.roles.filter((r) => !foundIdsSet.has(r.id));
+    // Validate role IDs
+    const roles = await this.roleModel.find({ _id: { $in: roleIds } }).exec();
 
-    // Combine existing roles with new ones
-    user.roles = [...existingRoles, ...newRoles];
-    return await this.usersRepository.save(user);
+    if (roles.length !== roleIds.length) {
+      const foundIds = roles.map((r) => r._id.toString());
+      const notFoundIds = roleIds.filter((id) => !foundIds.includes(id));
+      throw new BadRequestException(
+        `Some role IDs were not found: ${notFoundIds.join(', ')}`,
+      );
+    }
+
+    // Add new roles (avoiding duplicates)
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $addToSet: { roles: { $each: roleIds } } },
+        { new: true },
+      )
+      .populate<{ roles: RoleWWithPopulatePermission[] }>({
+        path: 'roles',
+        populate: {
+          path: 'permissions',
+        },
+      })
+      .exec();
+    if (!updatedUser) {
+      throw new BadRequestException(`User with ID "${userId}" not found`);
+    }
+    return updatedUser;
   }
 
-  async removeRoles(userId: string, roleIds: string[]): Promise<User> {
-    const user = await this.findOne(userId);
+  async removeRoles(
+    userId: string,
+    roleIds: string[],
+  ): Promise<UserWithPopulateRoleAndPermission> {
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $pull: { roles: { $in: roleIds } } },
+        { new: true },
+      )
+      .populate<{ roles: RoleWWithPopulatePermission[] }>({
+        path: 'roles',
+        populate: {
+          path: 'permissions',
+        },
+      })
+      .exec();
 
-    const excludeRoleSet = new Set(roleIds);
+    if (!updatedUser) {
+      throw new BadRequestException(`User with ID "${userId}" not found`);
+    }
 
-    // Filter out the roles to be removed
-    user.roles = user.roles.filter((role) => !excludeRoleSet.has(role.id));
-
-    return await this.usersRepository.save(user);
+    return updatedUser;
   }
 
   // This function for auth service to get user permissions
   async getUserPermissions(id: string): Promise<AccessControl[]> {
-    // Find the user with their roles and nested permissions
-    const user = await this.usersRepository.findOne({
-      where: { id },
-      relations: {
-        roles: {
-          permissions: true,
+    const user = await this.userModel
+      .findById(id)
+      .populate<{ roles: RoleWWithPopulatePermission[] }>({
+        path: 'roles',
+        populate: {
+          path: 'permissions',
         },
-      },
-    });
+      })
+      .exec();
 
     if (!user) {
       throw new BadRequestException(`User with ID "${id}" not found`);
     }
 
-    if (!user.roles || user.roles.length === 0) {
+    if (user.roles.length === 0) {
       return [];
     }
 
@@ -226,7 +291,7 @@ export class UsersService {
 
     // Process each role's permissions
     user.roles.forEach((role) => {
-      if (role.permissions) {
+      if (role.permissions.length > 0) {
         role.permissions.forEach((permission) => {
           // Create a unique identifier for this permission
           const permKey = `${permission.privilege}:${permission.action}`;
@@ -235,7 +300,7 @@ export class UsersService {
       }
     });
 
-    // Convert the unique permissions back to RoleAction objects
+    // Convert the unique permissions back to AccessControl objects
     return Array.from(uniquePermissions).map((permString) => {
       const [privilege, action] = permString.split(':');
       return {

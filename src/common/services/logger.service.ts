@@ -1,11 +1,11 @@
 // src/common/logger/logger.service.ts
 import {
   ConsoleLogger,
+  Inject,
   Injectable,
   LoggerService,
-  Scope,
   LogLevel,
-  Inject,
+  Scope,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { defaultLogLevels } from 'src/config/constants/default-log-level';
@@ -21,7 +21,7 @@ export class AppLoggerService implements LoggerService {
   constructor(@Inject(ConfigService) private configService?: ConfigService) {
     this.logLevels =
       this.configService?.get<LogLevel[]>('logging.levels') ??
-      defaultLogLevels[ENV.DEVELOPMENT];
+      defaultLogLevels[ENV.DEV];
     this.maxObjectSize =
       this.configService?.get<number>('logging.options.maxObjectSize') ?? 1000;
 

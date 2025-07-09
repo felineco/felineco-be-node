@@ -1,25 +1,25 @@
 // src/app.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 
-import databaseConfig from './config/database.config';
-import appConfig from './config/configuration';
 import authConfig from './config/auth.config';
+import appConfig from './config/configuration';
+import databaseConfig from './config/database.config';
 
+import { MongooseModule } from '@nestjs/mongoose';
+import { AllExceptionsFilter } from './common/filters/all-exception.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ValidationPipe } from './common/pipes/validation.pipe';
+import { CommonServicesModule } from './common/services/common-services.module';
 import loggingConfig from './config/logging.config';
-import { AllExceptionsFilter } from './common/filters/all-exception.filter';
+import { HealthModule } from './modules/health/health.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
-import { CommonServicesModule } from './common/services/common-services.module';
-import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -29,13 +29,16 @@ import { HealthModule } from './modules/health/health.module';
       load: [databaseConfig, appConfig, authConfig, loggingConfig],
       envFilePath: '.env',
     }),
-    // PostgreSQL Database
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
+    // Mongoose Database
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        ...(await configService.get('database.postgres')),
+        uri: configService.get<string>('database.mongodb.uri'),
+        ...((await configService.get('database.mongodb')) ?? {}),
       }),
+      inject: [ConfigService],
     }),
+
     // Common Services Module
     CommonServicesModule,
     // Feature modules

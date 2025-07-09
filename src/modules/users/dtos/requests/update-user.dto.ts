@@ -3,9 +3,9 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsArray,
   IsEmail,
+  IsMongoId,
   IsOptional,
   IsString,
-  IsUUID,
   MinLength,
 } from 'class-validator';
 
@@ -22,13 +22,13 @@ export class UpdateUserDto {
   password?: string;
 
   @ApiProperty({
-    example: ['123e4567-e89b-12d3-a456-426614174000'],
+    example: ['507f1f77bcf86cd799439011'],
     description: 'List of role IDs to assign to the user',
     type: [String],
     required: false,
   })
   @IsArray()
-  @IsUUID('4', { each: true })
+  @IsMongoId({ each: true })
   @IsOptional()
   roleIds?: string[];
 }

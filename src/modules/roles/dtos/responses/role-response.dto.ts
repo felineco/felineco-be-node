@@ -1,20 +1,22 @@
 // src/modules/roles/dtos/responses/role-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { Role } from '../../entities/role.entity';
+import mongoose from 'mongoose';
 import {
-  PermissionResponseDto,
   fromPermissionToResponseDto,
+  PermissionResponseDto,
 } from 'src/modules/permissions/dtos/responses/permission-response.dto';
+import { Permission } from 'src/modules/permissions/schemas/permission.schema';
+import { Role, RoleWWithPopulatePermission } from '../../schemas/role.schema';
 
 export class RoleResponseDto {
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
-  id: string;
+  @ApiProperty({ example: '507f191e810c19729de860ea' })
+  _id: string;
 
   @ApiProperty({ example: 'Admin' })
   name: string;
 
   @ApiProperty({ type: [PermissionResponseDto] })
-  permissions: PermissionResponseDto[];
+  permissions: PermissionResponseDto[] | string[];
 
   @ApiProperty({ example: '2025-05-03T10:30:00Z' })
   createdAt: Date;
@@ -25,13 +27,27 @@ export class RoleResponseDto {
 
 export function fromRoleToResponseDto(role: Role): RoleResponseDto {
   const responseDto = new RoleResponseDto();
-  responseDto.id = role.id;
+  responseDto._id = role._id.toString();
   responseDto.name = role.roleName;
-  responseDto.permissions = role.permissions
-    ? role.permissions.map((permission) =>
-        fromPermissionToResponseDto(permission),
-      )
-    : [];
+  responseDto.permissions = role.permissions.map(
+    (permission: mongoose.Types.ObjectId) => {
+      return permission.toString();
+    },
+  );
+  responseDto.createdAt = role.createdAt;
+  responseDto.updatedAt = role.updatedAt;
+  return responseDto;
+}
+
+export function fromRoleWithPermissionsToResponseDto(
+  role: RoleWWithPopulatePermission,
+): RoleResponseDto {
+  const responseDto = new RoleResponseDto();
+  responseDto._id = role._id.toString();
+  responseDto.name = role.roleName;
+  responseDto.permissions = role.permissions.map((permission: Permission) => {
+    return fromPermissionToResponseDto(permission);
+  });
   responseDto.createdAt = role.createdAt;
   responseDto.updatedAt = role.updatedAt;
   return responseDto;

@@ -1,22 +1,24 @@
-// src/modules/auth/strategies/google.strategy.ts
+// src/modules/auth/strategies/facebook.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { Profile, Strategy } from 'passport-google-oauth20';
+import { Profile, Strategy } from 'passport-facebook';
 import { UserWithPopulateRoleAndPermission } from 'src/modules/users/schemas/user.schema';
 import { AuthService } from '../services/auth.service';
 
 @Injectable()
-export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
+export class FacebookStrategy extends PassportStrategy(Strategy, 'facebook') {
   constructor(
     configService: ConfigService,
     private authService: AuthService,
   ) {
     super({
-      clientID: configService.get<string>('auth.google.clientId') ?? '',
-      clientSecret: configService.get<string>('auth.google.clientSecret') ?? '',
-      callbackURL: configService.get<string>('auth.google.callbackUrl') ?? '',
-      scope: ['email', 'profile'],
+      clientID: configService.get<string>('auth.facebook.clientId') ?? '',
+      clientSecret:
+        configService.get<string>('auth.facebook.clientSecret') ?? '',
+      callbackURL: configService.get<string>('auth.facebook.callbackUrl') ?? '',
+      scope: ['email'],
+      profileFields: ['id', 'emails', 'name'],
     });
   }
 
@@ -33,20 +35,19 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       const { emails, id } = profile;
 
       if (!emails || emails.length === 0) {
-        return done(new Error('No email found from Google profile'), false);
+        return done(new Error('No email found from Facebook profile'), false);
       }
 
       const email = emails[0].value;
 
       // Try to find or create a user with this email
-      const user = await this.authService.validateOrCreateGoogleUser({
+      const user = await this.authService.validateOrCreateFacebookUser({
         email,
-        googleId: id,
+        facebookId: id,
       });
 
       return done(null, user);
     } catch (error) {
-      // Type assertion to Error since we know it's an error
       done(error instanceof Error ? error : new Error(String(error)), false);
     }
   }

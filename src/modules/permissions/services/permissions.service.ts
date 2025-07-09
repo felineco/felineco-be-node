@@ -1,52 +1,53 @@
 // src/modules/permissions/services/permissions.service.ts
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
-import { Permission } from '../entities/permission.entity';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { Action, Privilege } from 'src/common/enums/permission.enum';
-import {
-  PagingQueryOptions,
-  toTypeOrmSortOrder,
-} from '../../../common/dtos/page-query-options.dto';
+import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
 import {
   PagingResponse,
   PagingResponseMeta,
 } from '../../../common/dtos/page-response.dto';
-import { TABLE_NAME } from 'src/common/enums/table-name.enum';
+import { Permission, PermissionDocument } from '../schemas/permission.schema';
 
 @Injectable()
 export class PermissionsService {
   constructor(
-    @InjectRepository(Permission)
-    private permissionsRepository: Repository<Permission>,
+    @InjectModel(Permission.name)
+    private permissionModel: Model<PermissionDocument>,
   ) {}
 
   async create(permissionData: {
     privilege: Privilege;
     action: Action;
   }): Promise<Permission> {
-    const permission = this.permissionsRepository.create(permissionData);
-    return await this.permissionsRepository.save(permission);
+    try {
+      const permission = new this.permissionModel(permissionData);
+      return await permission.save();
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 11000) {
+        throw new BadRequestException(
+          `Permission with privilege '${permissionData.privilege}' and action '${permissionData.action}' already exists`,
+        );
+      }
+      throw error;
+    }
   }
 
   async findAll(
     pageOptions: PagingQueryOptions,
   ): Promise<PagingResponse<Permission>> {
-    const queryBuilder = this.permissionsRepository.createQueryBuilder(
-      TABLE_NAME.PERMISSION,
-    );
+    const [sortField, sortOrder] = pageOptions.mongoSortParams;
 
-    const [sortField, sortOrder] = pageOptions.sortParams;
-    queryBuilder
-      .orderBy(
-        `${TABLE_NAME.PERMISSION}.${sortField}`,
-        toTypeOrmSortOrder(sortOrder),
-      )
-      .skip(pageOptions.skip)
-      .take(pageOptions.limit);
-
-    const itemCount = await queryBuilder.getCount();
-    const { entities } = await queryBuilder.getRawAndEntities();
+    const [permissions, itemCount] = await Promise.all([
+      this.permissionModel
+        .find()
+        .sort({ [sortField]: sortOrder })
+        .skip(pageOptions.skip)
+        .limit(pageOptions.limit)
+        .exec(),
+      this.permissionModel.countDocuments().exec(),
+    ]);
 
     const pageMetaDto = new PagingResponseMeta({
       page: pageOptions.page,
@@ -54,13 +55,11 @@ export class PermissionsService {
       itemCount,
     });
 
-    return new PagingResponse(entities, pageMetaDto);
+    return new PagingResponse(permissions, pageMetaDto);
   }
 
   async findOne(id: string): Promise<Permission> {
-    const permission = await this.permissionsRepository.findOne({
-      where: { id },
-    });
+    const permission = await this.permissionModel.findById(id).exec();
 
     if (!permission) {
       throw new BadRequestException(`Permission with ID '${id}' not found`);
@@ -71,34 +70,33 @@ export class PermissionsService {
 
   async update(
     id: string,
-    permissionData: DeepPartial<Permission>,
+    permissionData: Partial<Permission>,
   ): Promise<Permission> {
-    const permission = await this.findOne(id);
+    try {
+      const updatedPermission = await this.permissionModel
+        .findByIdAndUpdate(id, permissionData, { new: true })
+        .exec();
 
-    // Check if updated privilege+action combination already exists
-    const updatedPermission = this.permissionsRepository.merge(
-      permission,
-      permissionData,
-    );
-    return await this.permissionsRepository.save(updatedPermission);
+      if (!updatedPermission) {
+        throw new BadRequestException(`Permission with ID '${id}' not found`);
+      }
+
+      return updatedPermission;
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 11000) {
+        throw new BadRequestException(
+          `Permission with privilege '${permissionData.privilege}' and action '${permissionData.action}' already exists`,
+        );
+      }
+      throw error;
+    }
   }
 
   async remove(id: string): Promise<void> {
-    const permission = await this.permissionsRepository.findOne({
-      where: { id },
-      relations: { roles: true },
-    });
-    if (!permission) {
+    const result = await this.permissionModel.findByIdAndDelete(id).exec();
+
+    if (!result) {
       throw new BadRequestException(`Permission with ID '${id}' not found`);
     }
-
-    // Remove the permission from all associated roles
-    if (permission.roles && permission.roles.length > 0) {
-      // Clear the roles array to remove the associations in the join table
-      permission.roles = [];
-      await this.permissionsRepository.save(permission);
-    }
-
-    await this.permissionsRepository.remove(permission);
   }
 }

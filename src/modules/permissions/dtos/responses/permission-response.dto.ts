@@ -1,11 +1,11 @@
 // src/modules/permissions/dtos/responses/permission-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { Action, Privilege } from 'src/common/enums/permission.enum';
-import { Permission } from '../../entities/permission.entity';
+import { Permission } from '../../schemas/permission.schema';
 
 export class PermissionResponseDto {
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
-  id: string;
+  @ApiProperty({ example: '507f191e810c19729de860ea' })
+  _id: string;
 
   @ApiProperty({
     enum: Privilege,
@@ -32,7 +32,7 @@ export function fromPermissionToResponseDto(
   permission: Permission,
 ): PermissionResponseDto {
   const responseDto = new PermissionResponseDto();
-  responseDto.id = permission.id;
+  responseDto._id = permission._id.toString();
   responseDto.object = permission.privilege;
   responseDto.action = permission.action;
   responseDto.createdAt = permission.createdAt;

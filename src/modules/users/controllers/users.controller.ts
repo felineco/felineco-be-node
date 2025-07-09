@@ -9,18 +9,19 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { UsersService } from '../services/users.service';
-import { CreateUserDto } from '../dtos/requests/create-user.dto';
-import { UpdateUserDto } from '../dtos/requests/update-user.dto';
-import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
+import { ApiTags } from '@nestjs/swagger';
 import { PagingResponse } from 'src/common/dtos/page-response.dto';
+import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
 import { AddRolesDto } from '../dtos/requests/add-roles.dto';
+import { CreateUserDto } from '../dtos/requests/create-user.dto';
 import { RemoveRolesDto } from '../dtos/requests/remove-roles.dto';
+import { UpdateUserDto } from '../dtos/requests/update-user.dto';
 import {
   UserResponseDto,
   fromUserToResponseDto,
+  fromUserWithPopulateToResponseDto,
 } from '../dtos/responses/user-response.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { UsersService } from '../services/users.service';
 
 @ApiTags('Users')
 @Controller('users')
@@ -43,7 +44,7 @@ export class UsersController {
   ): Promise<PagingResponse<UserResponseDto>> {
     const usersPage = await this.usersService.findAll(pageOptionsDto);
     const mappedData = usersPage.data.map((user) =>
-      fromUserToResponseDto(user),
+      fromUserWithPopulateToResponseDto(user),
     );
     return new PagingResponse<UserResponseDto>(mappedData, usersPage.meta);
   }
@@ -51,7 +52,7 @@ export class UsersController {
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     const user = await this.usersService.findOne(id);
-    return fromUserToResponseDto(user);
+    return fromUserWithPopulateToResponseDto(user);
   }
 
   @Patch(':id')
@@ -64,7 +65,7 @@ export class UsersController {
       updateUserDto,
       updateUserDto.roleIds,
     );
-    return fromUserToResponseDto(updatedUser);
+    return fromUserWithPopulateToResponseDto(updatedUser);
   }
 
   @Delete(':id')
@@ -82,7 +83,7 @@ export class UsersController {
       id,
       addRolesDto.roleIds,
     );
-    return fromUserToResponseDto(updatedUser);
+    return fromUserWithPopulateToResponseDto(updatedUser);
   }
 
   @Delete(':id/roles')
@@ -94,6 +95,6 @@ export class UsersController {
       id,
       removeRolesDto.roleIds,
     );
-    return fromUserToResponseDto(updatedUser);
+    return fromUserWithPopulateToResponseDto(updatedUser);
   }
 }

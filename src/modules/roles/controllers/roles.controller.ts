@@ -1,26 +1,27 @@
 // src/modules/roles/controllers/roles.controller.ts
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { RolesService } from '../services/roles.service';
 import { PagingQueryOptions } from 'src/common/dtos/page-query-options.dto';
 import { PagingResponse } from 'src/common/dtos/page-response.dto';
+import { AddPermissionsDto } from '../dtos/requests/add-permissions.dto';
 import { CreateRoleDto } from '../dtos/requests/create-role.dto';
+import { RemovePermissionsDto } from '../dtos/requests/remove-permissions.dto';
+import { UpdateRoleDto } from '../dtos/requests/update-role.dto';
 import {
   fromRoleToResponseDto,
+  fromRoleWithPermissionsToResponseDto,
   RoleResponseDto,
 } from '../dtos/responses/role-response.dto';
-import { UpdateRoleDto } from '../dtos/requests/update-role.dto';
-import { AddPermissionsDto } from '../dtos/requests/add-permissions.dto';
-import { RemovePermissionsDto } from '../dtos/requests/remove-permissions.dto';
+import { RolesService } from '../services/roles.service';
 
 @ApiTags('Roles')
 @Controller('roles')
@@ -42,7 +43,7 @@ export class RolesController {
   ): Promise<PagingResponse<RoleResponseDto>> {
     const rolesPage = await this.rolesService.findAll(pageOptionsDto);
     const mappedData = rolesPage.data.map((role) =>
-      fromRoleToResponseDto(role),
+      fromRoleWithPermissionsToResponseDto(role),
     );
     return new PagingResponse<RoleResponseDto>(mappedData, rolesPage.meta);
   }
@@ -50,7 +51,7 @@ export class RolesController {
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<RoleResponseDto> {
     const role = await this.rolesService.findOne(id);
-    return fromRoleToResponseDto(role);
+    return fromRoleWithPermissionsToResponseDto(role);
   }
 
   @Patch(':id')
@@ -63,7 +64,7 @@ export class RolesController {
       { roleName: updateRoleDto.roleName },
       updateRoleDto.permissionIds,
     );
-    return fromRoleToResponseDto(updatedRole);
+    return fromRoleWithPermissionsToResponseDto(updatedRole);
   }
 
   @Delete(':id')
@@ -81,7 +82,7 @@ export class RolesController {
       id,
       addPermissionsDto.permissionIds,
     );
-    return fromRoleToResponseDto(updatedRole);
+    return fromRoleWithPermissionsToResponseDto(updatedRole);
   }
 
   @Delete(':id/permissions')
@@ -93,6 +94,6 @@ export class RolesController {
       id,
       removePermissionsDto.permissionIds,
     );
-    return fromRoleToResponseDto(updatedRole);
+    return fromRoleWithPermissionsToResponseDto(updatedRole);
   }
 }

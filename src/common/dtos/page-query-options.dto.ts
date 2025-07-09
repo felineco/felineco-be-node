@@ -2,7 +2,7 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-export enum SortOrder {
+export enum MongoSortOrder {
   ASC = 'asc',
   DESC = 'desc',
 }
@@ -29,24 +29,13 @@ export class PagingQueryOptions {
     return (this.page - 1) * this.limit;
   }
 
-  get sortParams(): [string, SortOrder] {
-    if (!this.sort) return ['createdAt', SortOrder.DESC];
+  get mongoSortParams(): [string, MongoSortOrder] {
+    if (!this.sort) return ['createdAt', MongoSortOrder.DESC];
 
     const [field, order] = this.sort.split(':');
     return [
       field || 'createdAt',
-      order?.toLowerCase() === 'asc' ? SortOrder.ASC : SortOrder.DESC,
+      order?.toLowerCase() === 'asc' ? MongoSortOrder.ASC : MongoSortOrder.DESC,
     ];
-  }
-}
-
-export function toTypeOrmSortOrder(order: SortOrder): 'ASC' | 'DESC' {
-  switch (order) {
-    case SortOrder.ASC:
-      return 'ASC';
-    case SortOrder.DESC:
-      return 'DESC';
-    default:
-      throw new Error(`Invalid sort order`);
   }
 }

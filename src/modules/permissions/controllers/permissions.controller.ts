@@ -1,25 +1,25 @@
 // src/modules/permissions/controllers/permissions.controller.ts
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
   Query,
 } from '@nestjs/common';
-import { PermissionsService } from '../services/permissions.service';
+import { ApiTags } from '@nestjs/swagger';
+import { PagingQueryOptions } from 'src/common/dtos/page-query-options.dto';
+import { PagingResponse } from 'src/common/dtos/page-response.dto';
 import { CreatePermissionDto } from '../dtos/requests/create-permission.dto';
 import { UpdatePermissionDto } from '../dtos/requests/update-permission.dto';
-import { Permission } from '../entities/permission.entity';
-import { PagingQueryOptions } from 'src/common/dtos/page-query-options.dto';
 import {
   fromPermissionToResponseDto,
   PermissionResponseDto,
 } from '../dtos/responses/permission-response.dto';
-import { PagingResponse } from 'src/common/dtos/page-response.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { Permission } from '../schemas/permission.schema';
+import { PermissionsService } from '../services/permissions.service';
 
 @ApiTags('Permissions')
 @Controller('permissions')

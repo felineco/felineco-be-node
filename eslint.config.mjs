@@ -31,6 +31,8 @@ export default tseslint.config(
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
       '@typescript-eslint/require-await': 'off',
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/strict-boolean-expressions': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'error',
     },
   },
 );

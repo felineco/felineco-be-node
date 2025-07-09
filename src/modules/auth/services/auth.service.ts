@@ -1,14 +1,14 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { CryptoService } from 'src/common/services/crypto.service';
+import { UserWithPopulateRoleAndPermission } from 'src/modules/users/schemas/user.schema';
 import { UsersService } from '../../users/services/users.service';
-import { User } from 'src/modules/users/entities/user.entity';
+import { AuthTokenInterface } from '../interfaces/auth-token.interface';
 import {
   JwtPayload,
   RefreshTokenPayload,
 } from '../interfaces/jwt-payload.interface';
-import { AuthTokenInterface } from '../interfaces/auth-token.interface';
-import { ConfigService } from '@nestjs/config';
-import { CryptoService } from 'src/common/services/crypto.service';
 
 // Add this interface inside your file
 interface GoogleUserInfo {
@@ -25,21 +25,26 @@ export class AuthService {
     private cryptoService: CryptoService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<User> {
+  async validateUser(
+    email: string,
+    password: string,
+  ): Promise<UserWithPopulateRoleAndPermission> {
     const user = await this.usersService.findByEmail(email);
     const isPasswordValid = await this.cryptoService.comparePasswords(
       password,
       user.hashPassword,
     );
 
-    if (user && isPasswordValid) {
+    if (isPasswordValid) {
       return user;
     }
     throw new UnauthorizedException('Wrong password');
   }
 
-  async login(user: User): Promise<AuthTokenInterface> {
-    return this.generateTokens(user.id);
+  async login(
+    user: UserWithPopulateRoleAndPermission,
+  ): Promise<AuthTokenInterface> {
+    return this.generateTokens(user._id.toString());
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokenInterface> {
@@ -65,7 +70,9 @@ export class AuthService {
   }
 
   // New method to validate Google users
-  async validateOrCreateGoogleUser(userInfo: GoogleUserInfo): Promise<User> {
+  async validateOrCreateGoogleUser(
+    userInfo: GoogleUserInfo,
+  ): Promise<UserWithPopulateRoleAndPermission> {
     try {
       // Try to find an existing user with this email
       const existingUser = await this.usersService.findByEmail(userInfo.email);
@@ -82,14 +89,56 @@ export class AuthService {
         // You might want to assign default roles here
       });
 
-      return newUser;
+      const userWithRoles: UserWithPopulateRoleAndPermission = {
+        ...newUser,
+        roles: [],
+      };
+      return userWithRoles;
+    }
+  }
+  // New method to validate Facebook users
+  async validateOrCreateFacebookUser(userInfo: {
+    email: string;
+    facebookId: string;
+  }): Promise<UserWithPopulateRoleAndPermission> {
+    try {
+      // Try to find an existing user with this email
+      const existingUser = await this.usersService.findByEmail(userInfo.email);
+      return existingUser;
+    } catch {
+      // User doesn't exist, create a new one
+      // Generate a random password for the user (they will never use it directly)
+      const randomPassword = await this.cryptoService.randomPassword();
+
+      // Create new user
+      const newUser = await this.usersService.create({
+        email: userInfo.email,
+        password: randomPassword,
+        // You might want to assign default roles here
+      });
+
+      const userWithRoles: UserWithPopulateRoleAndPermission = {
+        ...newUser,
+        roles: [],
+      };
+      return userWithRoles;
     }
   }
 
   // Method to create tokens for Google-authenticated user
-  async loginWithGoogle(user: User): Promise<AuthTokenInterface> {
+  async loginWithGoogle(
+    user: UserWithPopulateRoleAndPermission,
+  ): Promise<AuthTokenInterface> {
     // Reuse your existing token generation functionality
-    return this.generateTokens(user.id);
+    return this.generateTokens(user._id.toString());
+  }
+
+  // Method to create tokens for Facebook-authenticated user
+  async loginWithFacebook(
+    user: UserWithPopulateRoleAndPermission,
+  ): Promise<AuthTokenInterface> {
+    // Reuse your existing token generation functionality
+    return this.generateTokens(user._id.toString());
   }
 
   private async generateTokens(userId: string): Promise<AuthTokenInterface> {

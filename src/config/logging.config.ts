@@ -4,11 +4,11 @@ import { defaultLogLevels } from './constants/default-log-level';
 import { ENV } from './constants/environment.enum';
 
 export default registerAs('logging', () => {
-  const environment = (process.env.NODE_ENV as ENV) || ENV.DEVELOPMENT;
+  const environment = (process.env.NODE_ENV as ENV) ?? ENV.DEV;
 
   return {
     // Use provided log levels or fall back to defaults based on environment
-    levels: defaultLogLevels[environment] || defaultLogLevels[ENV.DEVELOPMENT],
+    levels: defaultLogLevels[environment] ?? defaultLogLevels[ENV.DEV],
     // Additional logging options
     options: {
       // Max size for logged objects (to prevent excessive logging)

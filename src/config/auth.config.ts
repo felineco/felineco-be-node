@@ -12,4 +12,12 @@ export default registerAs('auth', () => ({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
     callbackUrl: process.env.GOOGLE_CALLBACK_URL ?? '',
   },
+  facebook: {
+    clientId: process.env.FACEBOOK_CLIENT_ID ?? '',
+    clientSecret: process.env.FACEBOOK_CLIENT_SECRET ?? '',
+    callbackUrl: process.env.FACEBOOK_CALLBACK_URL ?? '',
+  },
+  redirectUrlAfterLogin:
+    process.env.REDIRECT_URL_AFTER_LOGIN ??
+    'http://localhost:3000/auth/callback',
 }));

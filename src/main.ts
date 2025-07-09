@@ -1,7 +1,8 @@
 // src/main.ts
-import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AppLoggerService } from './common/services/logger.service';
 
@@ -28,7 +29,7 @@ async function bootstrap() {
   bootstrapLogger.log('CORS enabled');
 
   // Swagger documentation
-  if (configService.get<boolean>('app.swagger.enabled')) {
+  if (configService.get<boolean>('app.swagger.enabled') ?? false) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle(
         configService.get<string>('app.swagger.title') ?? 'API Documentation',
@@ -45,6 +46,9 @@ async function bootstrap() {
     SwaggerModule.setup(`${apiPrefix}/docs`, app, document);
     bootstrapLogger.log(`Swagger documentation enabled at /${apiPrefix}/docs`);
   }
+
+  // Cookie parser
+  app.use(cookieParser());
 
   // Start the server
   const port = configService.get<number>('app.port') ?? 3000;

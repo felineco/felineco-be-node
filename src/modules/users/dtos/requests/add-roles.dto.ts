@@ -1,6 +1,6 @@
 // src/modules/users/dtos/requests/add-roles.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsArray, IsMongoId, IsNotEmpty } from 'class-validator';
 
 export class AddRolesDto {
   @ApiProperty({
@@ -10,6 +10,6 @@ export class AddRolesDto {
   })
   @IsArray()
   @IsNotEmpty()
-  @IsUUID('4', { each: true })
+  @IsMongoId({ each: true })
   roleIds: string[];
 }

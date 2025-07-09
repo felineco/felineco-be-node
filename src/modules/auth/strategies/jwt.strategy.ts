@@ -1,14 +1,27 @@
+// src/modules/auth/strategies/jwt.strategy.ts
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ACCESS_TOKEN_COOKIE_NAME } from 'src/config/constants/cookie-names';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        // Extract from Authorization Bearer header => TURN OFF FOR NOW
+        // ExtractJwt.fromAuthHeaderAsBearerToken(),
+        // Then try to extract from cookies
+        (request: Request): string | null => {
+          const result = (
+            request?.cookies as Record<string, string | undefined>
+          )[ACCESS_TOKEN_COOKIE_NAME];
+          return typeof result === 'string' ? result : null;
+        },
+      ]),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('auth.jwt.secret') ?? '',
     });

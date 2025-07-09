@@ -1,5 +1,5 @@
-import { User } from 'src/modules/users/entities/user.entity';
+import { UserWithPopulateRoleAndPermission } from 'src/modules/users/schemas/user.schema';
 
 export interface RequestWithUser extends Request {
-  user: User; // Or a more specific user type
+  user: UserWithPopulateRoleAndPermission; // Or a more specific user type
 }
