@@ -33,6 +33,20 @@ export default tseslint.config(
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
       '@typescript-eslint/strict-boolean-expressions': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
+      'no-console': 'error',
     },
+  },
+  {
+    files: ['**/*.spec.ts', '**/*.e2e-spec.ts', '**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['./test/**/*.ts'],
+    rules: { 'no-console': 'off' },
   },
 );

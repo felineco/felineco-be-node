@@ -1,0 +1,366 @@
+// src/modules/auth/services/auth.service.spec.ts
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+import { Test, TestingModule } from '@nestjs/testing';
+import mongoose from 'mongoose';
+import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Permission } from 'src/modules/permissions/schemas/permission.schema';
+import { RoleWWithPopulatePermission } from 'src/modules/roles/schemas/role.schema';
+import {
+  User,
+  UserWithPopulateRoleAndPermission,
+} from 'src/modules/users/schemas/user.schema';
+import { CryptoService } from '../../../common/services/crypto.service';
+import { UsersService } from '../../users/services/users.service';
+import { AuthService } from './auth.service';
+
+describe('AuthService', () => {
+  let service: AuthService;
+  let usersService: jest.Mocked<UsersService>;
+  let jwtService: jest.Mocked<JwtService>;
+  let configService: jest.Mocked<ConfigService>;
+  let cryptoService: jest.Mocked<CryptoService>;
+
+  // Mock data
+  const mockUserId = new mongoose.Types.ObjectId();
+  const mockRoleId = new mongoose.Types.ObjectId();
+  const mockPermissionId = new mongoose.Types.ObjectId();
+
+  const mockPermission: Permission = {
+    _id: mockPermissionId,
+    privilege: Privilege.USER,
+    action: Action.READ,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockRole: RoleWWithPopulatePermission = {
+    _id: mockRoleId,
+    roleName: 'Admin',
+    permissions: [mockPermission],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockUser: User = {
+    _id: mockUserId,
+    email: 'test@example.com',
+    hashPassword: 'hashedpassword123',
+    roles: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockUserWithPermissions: UserWithPopulateRoleAndPermission = {
+    ...mockUser,
+    roles: [
+      {
+        ...mockRole,
+        permissions: [mockPermission],
+      },
+    ],
+  };
+
+  const mockTokens = {
+    accessToken: 'mock.access.token',
+    refreshToken: 'mock.refresh.token',
+    accessTokenExpiresAt: new Date(Date.now() + 86400000), // 1 day
+    refreshTokenExpiresAt: new Date(Date.now() + 604800000), // 7 days
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        {
+          provide: UsersService,
+          useValue: {
+            findByEmail: jest.fn(),
+            create: jest.fn(),
+            getUserPermissions: jest.fn(),
+          },
+        },
+        {
+          provide: JwtService,
+          useValue: {
+            sign: jest.fn(),
+            verify: jest.fn(),
+          },
+        },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn(),
+          },
+        },
+        {
+          provide: CryptoService,
+          useValue: {
+            comparePasswords: jest.fn(),
+            hashPassword: jest.fn(),
+            randomPassword: jest.fn(),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+    usersService = module.get(UsersService);
+    jwtService = module.get(JwtService);
+    configService = module.get(ConfigService);
+    cryptoService = module.get(CryptoService);
+
+    // Default config mocks
+    configService.get.mockImplementation((key: string) => {
+      const configs: Record<string, any> = {
+        'auth.jwt.secret': 'test-secret',
+        'auth.jwt.expiresIn': '1d',
+        'auth.jwt.refreshExpiresIn': '7d',
+      };
+      return configs[key];
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('validateUser', () => {
+    it('should return user when credentials are valid', async () => {
+      const email = 'test@example.com';
+      const password = 'password123';
+
+      usersService.findByEmail.mockResolvedValue(mockUserWithPermissions);
+      cryptoService.comparePasswords.mockResolvedValue(true);
+
+      const result = await service.validateUser(email, password);
+
+      expect(usersService.findByEmail).toHaveBeenCalledWith(email);
+      expect(cryptoService.comparePasswords).toHaveBeenCalledWith(
+        password,
+        mockUserWithPermissions.hashPassword,
+      );
+      expect(result).toEqual(mockUserWithPermissions);
+    });
+
+    it('should throw UnauthorizedException when password is invalid', async () => {
+      const email = 'test@example.com';
+      const password = 'wrongpassword';
+
+      usersService.findByEmail.mockResolvedValue(mockUserWithPermissions);
+      cryptoService.comparePasswords.mockResolvedValue(false);
+
+      await expect(service.validateUser(email, password)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should throw error when user not found', async () => {
+      const email = 'nonexistent@example.com';
+      const password = 'password123';
+
+      usersService.findByEmail.mockRejectedValue(
+        new BadRequestException(`User with email '${email}' not found`),
+      );
+
+      await expect(service.validateUser(email, password)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+  });
+
+  describe('login', () => {
+    it('should return tokens for valid user', async () => {
+      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
+      jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
+
+      const result = await service.login(mockUserWithPermissions);
+
+      expect(usersService.getUserPermissions).toHaveBeenCalledWith(
+        mockUserId.toString(),
+      );
+      expect(jwtService.sign).toHaveBeenCalledTimes(2);
+      expect(result).toMatchObject({
+        accessToken: mockTokens.accessToken,
+        refreshToken: mockTokens.refreshToken,
+      });
+    });
+  });
+
+  describe('refreshToken', () => {
+    it('should return new tokens for valid refresh token', async () => {
+      const refreshTokenPayload = {
+        sub: mockUserId.toString(),
+        tokenType: 'refresh',
+        iat: Date.now(),
+        exp: Date.now() + 86400000,
+      };
+
+      jwtService.verify.mockReturnValue(refreshTokenPayload);
+      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
+      jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
+
+      const result = await service.refreshToken(mockTokens.refreshToken);
+
+      expect(jwtService.verify).toHaveBeenCalledWith(mockTokens.refreshToken, {
+        secret: 'test-secret',
+      });
+      expect(result).toMatchObject({
+        accessToken: mockTokens.accessToken,
+        refreshToken: mockTokens.refreshToken,
+      });
+    });
+
+    it('should throw UnauthorizedException for invalid token type', async () => {
+      const invalidTokenPayload = {
+        sub: mockUserId.toString(),
+        tokenType: 'access', // Wrong type
+        iat: Date.now(),
+        exp: Date.now() + 86400000,
+      };
+
+      jwtService.verify.mockReturnValue(invalidTokenPayload);
+
+      await expect(
+        service.refreshToken(mockTokens.refreshToken),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw UnauthorizedException for invalid refresh token', async () => {
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('Invalid token');
+      });
+
+      await expect(service.refreshToken('invalid.token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('validateOrCreateGoogleUser', () => {
+    it('should return existing user if found', async () => {
+      const googleUserInfo = {
+        email: 'test@example.com',
+        googleId: 'google123',
+      };
+
+      usersService.findByEmail.mockResolvedValue(mockUserWithPermissions);
+
+      const result = await service.validateOrCreateGoogleUser(googleUserInfo);
+
+      expect(usersService.findByEmail).toHaveBeenCalledWith(
+        googleUserInfo.email,
+      );
+      expect(usersService.create).not.toHaveBeenCalled();
+      expect(result).toEqual(mockUserWithPermissions);
+    });
+
+    it('should create new user if not found', async () => {
+      const googleUserInfo = {
+        email: 'newuser@example.com',
+        googleId: 'google123',
+      };
+      const randomPassword = 'random-password-123';
+      const newUser = { ...mockUser, email: googleUserInfo.email };
+
+      usersService.findByEmail.mockRejectedValue(
+        new BadRequestException('User not found'),
+      );
+      cryptoService.randomPassword.mockResolvedValue(randomPassword);
+      usersService.create.mockResolvedValue(newUser);
+
+      const result = await service.validateOrCreateGoogleUser(googleUserInfo);
+
+      expect(cryptoService.randomPassword).toHaveBeenCalled();
+      expect(usersService.create).toHaveBeenCalledWith({
+        email: googleUserInfo.email,
+        password: randomPassword,
+      });
+      expect(result).toMatchObject({
+        ...newUser,
+        roles: [],
+      });
+    });
+  });
+
+  describe('validateOrCreateFacebookUser', () => {
+    it('should return existing user if found', async () => {
+      const facebookUserInfo = {
+        email: 'test@example.com',
+        facebookId: 'facebook123',
+      };
+
+      usersService.findByEmail.mockResolvedValue(mockUserWithPermissions);
+
+      const result =
+        await service.validateOrCreateFacebookUser(facebookUserInfo);
+
+      expect(usersService.findByEmail).toHaveBeenCalledWith(
+        facebookUserInfo.email,
+      );
+      expect(usersService.create).not.toHaveBeenCalled();
+      expect(result).toEqual(mockUserWithPermissions);
+    });
+
+    it('should create new user if not found', async () => {
+      const facebookUserInfo = {
+        email: 'newuser@example.com',
+        facebookId: 'facebook123',
+      };
+      const randomPassword = 'random-password-123';
+      const newUser = { ...mockUser, email: facebookUserInfo.email };
+
+      usersService.findByEmail.mockRejectedValue(
+        new BadRequestException('User not found'),
+      );
+      cryptoService.randomPassword.mockResolvedValue(randomPassword);
+      usersService.create.mockResolvedValue(newUser);
+
+      const result =
+        await service.validateOrCreateFacebookUser(facebookUserInfo);
+
+      expect(cryptoService.randomPassword).toHaveBeenCalled();
+      expect(usersService.create).toHaveBeenCalledWith({
+        email: facebookUserInfo.email,
+        password: randomPassword,
+      });
+      expect(result).toMatchObject({
+        ...newUser,
+        roles: [],
+      });
+    });
+  });
+
+  describe('loginWithGoogle', () => {
+    it('should generate tokens for Google user', async () => {
+      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
+      jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
+
+      const result = await service.loginWithGoogle(mockUserWithPermissions);
+
+      expect(result).toMatchObject({
+        accessToken: mockTokens.accessToken,
+        refreshToken: mockTokens.refreshToken,
+      });
+    });
+  });
+
+  describe('loginWithFacebook', () => {
+    it('should generate tokens for Facebook user', async () => {
+      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
+      jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
+
+      const result = await service.loginWithFacebook(mockUserWithPermissions);
+
+      expect(result).toMatchObject({
+        accessToken: mockTokens.accessToken,
+        refreshToken: mockTokens.refreshToken,
+      });
+    });
+  });
+});

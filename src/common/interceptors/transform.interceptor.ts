@@ -1,22 +1,16 @@
 // src/common/interceptors/transform.interceptor.ts
 import {
+  CallHandler,
+  ExecutionContext,
   Injectable,
   NestInterceptor,
-  ExecutionContext,
-  CallHandler,
 } from '@nestjs/common';
+import { instanceToPlain } from 'class-transformer';
+import { Response as ExpressResponse } from 'express';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Response as ExpressResponse } from 'express';
+import { Response } from '../dtos/common-response.dto';
 import { PagingResponse } from '../dtos/page-response.dto';
-import { instanceToPlain } from 'class-transformer';
-
-export interface Response<T> {
-  data: T;
-  meta?: any;
-  statusCode: number;
-  timestamp: string;
-}
 
 @Injectable()
 export class TransformInterceptor<T>

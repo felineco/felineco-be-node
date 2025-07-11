@@ -2,7 +2,6 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { AppLoggerService } from './common/services/logger.service';
 
@@ -47,9 +46,6 @@ async function bootstrap() {
     bootstrapLogger.log(`Swagger documentation enabled at /${apiPrefix}/docs`);
   }
 
-  // Cookie parser
-  app.use(cookieParser());
-
   // Start the server
   const port = configService.get<number>('app.port') ?? 3000;
   await app.listen(port);
@@ -60,6 +56,7 @@ async function bootstrap() {
 }
 
 void bootstrap().catch((err) => {
+  // eslint-disable-next-line no-console
   console.error('Error during bootstrap:', err);
   process.exit(1);
 });

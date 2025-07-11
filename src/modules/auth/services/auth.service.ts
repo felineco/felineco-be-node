@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { CryptoService } from 'src/common/services/crypto.service';
@@ -29,7 +33,16 @@ export class AuthService {
     email: string,
     password: string,
   ): Promise<UserWithPopulateRoleAndPermission> {
-    const user = await this.usersService.findByEmail(email);
+    let user: UserWithPopulateRoleAndPermission;
+    try {
+      user = await this.usersService.findByEmail(email);
+    } catch (error: any) {
+      // Check if the error is a BadRequestException
+      if (error instanceof BadRequestException) {
+        throw new UnauthorizedException(error);
+      }
+      throw error;
+    }
     const isPasswordValid = await this.cryptoService.comparePasswords(
       password,
       user.hashPassword,

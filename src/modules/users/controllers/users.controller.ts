@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { PagingResponse } from 'src/common/dtos/page-response.dto';
 import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
 import { AddRolesDto } from '../dtos/requests/add-roles.dto';
@@ -38,6 +39,7 @@ export class UsersController {
     return fromUserToResponseDto(user);
   }
 
+  @Auth()
   @Get()
   async findAll(
     @Query() pageOptionsDto: PagingQueryOptions,
@@ -49,12 +51,14 @@ export class UsersController {
     return new PagingResponse<UserResponseDto>(mappedData, usersPage.meta);
   }
 
+  @Auth()
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     const user = await this.usersService.findOne(id);
     return fromUserWithPopulateToResponseDto(user);
   }
 
+  @Auth()
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -68,12 +72,14 @@ export class UsersController {
     return fromUserWithPopulateToResponseDto(updatedUser);
   }
 
+  @Auth()
   @Delete(':id')
   async remove(@Param('id') id: string): Promise<{ message: string }> {
     await this.usersService.remove(id);
     return { message: 'User deleted successfully' };
   }
 
+  @Auth()
   @Post(':id/roles')
   async addRoles(
     @Param('id') id: string,
@@ -86,6 +92,7 @@ export class UsersController {
     return fromUserWithPopulateToResponseDto(updatedUser);
   }
 
+  @Auth()
   @Delete(':id/roles')
   async removeRoles(
     @Param('id') id: string,

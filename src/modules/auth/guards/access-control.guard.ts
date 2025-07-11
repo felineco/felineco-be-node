@@ -1,12 +1,12 @@
 // src/modules/auth/guards/authorization-policy.guard.ts
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   ACCESS_CONTROL_KEY,
   AccessControl,
 } from 'src/common/decorators/authorization-policy.decorator.ts';
-import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { Action } from 'src/common/enums/permission.enum';
+import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 @Injectable()
 export class AccessControlGuard implements CanActivate {
@@ -20,7 +20,7 @@ export class AccessControlGuard implements CanActivate {
     );
 
     // If no policies required, allow access
-    if (!requiredPolicies || requiredPolicies.length === 0) {
+    if (requiredPolicies.length === 0) {
       return true;
     }
 
@@ -30,16 +30,16 @@ export class AccessControlGuard implements CanActivate {
       .getRequest<{ user: JwtPayload | undefined }>();
     const user = request.user;
 
-    if (!user || !user.permissions) {
+    if (user === undefined) {
       return false;
     }
     // Create a set of user permission strings
     const userPermissionSet = new Set<string>();
 
     // Process user permissions
-    if (user.permissions && Array.isArray(user.permissions)) {
+    if (Array.isArray(user.permissions)) {
       user.permissions.forEach((perm: AccessControl) => {
-        if (perm && 'privilege' in perm && 'action' in perm) {
+        if ('privilege' in perm && 'action' in perm) {
           const privilege = perm.privilege;
           const action = perm.action;
 
