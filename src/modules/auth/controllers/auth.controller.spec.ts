@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
-} from '../../../config/constants/cookie-names';
+} from '../../../common/constants/cookie-names.constant';
 import { AuthService } from '../services/auth.service';
 import { AuthController } from './auth.controller';
 

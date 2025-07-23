@@ -18,16 +18,18 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { CommonServicesModule } from './common/services/common-services.module';
 import loggingConfig from './config/logging.config';
+import s3Config from './config/s3.config';
 import { HealthModule } from './modules/health/health.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
+import { S3Module } from './modules/s3/s3.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, appConfig, authConfig, loggingConfig],
+      load: [databaseConfig, appConfig, authConfig, loggingConfig, s3Config],
       envFilePath: '.env',
     }),
     // Mongoose Database
@@ -43,11 +45,12 @@ import { RolesModule } from './modules/roles/roles.module';
     // Common Services Module
     CommonServicesModule,
     // Feature modules
+    HealthModule,
     AuthModule,
     UsersModule,
     RolesModule,
     PermissionsModule,
-    HealthModule,
+    S3Module,
   ],
   controllers: [],
   providers: [
@@ -71,6 +74,6 @@ import { RolesModule } from './modules/roles/roles.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(cookieParser()).forRoutes('*');
+    consumer.apply(cookieParser()).forRoutes('/{*path}');
   }
 }

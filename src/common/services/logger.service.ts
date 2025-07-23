@@ -8,8 +8,8 @@ import {
   Scope,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { defaultLogLevels } from 'src/config/constants/default-log-level';
-import { ENV } from 'src/config/constants/environment.enum';
+import { defaultLogLevels } from 'src/common/constants/default-log-level.constant';
+import { ENV } from '../enums/environment.enum';
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class AppLoggerService implements LoggerService {

@@ -1,7 +1,7 @@
 // src/config/logging.config.ts
 import { registerAs } from '@nestjs/config';
-import { defaultLogLevels } from './constants/default-log-level';
-import { ENV } from './constants/environment.enum';
+import { ENV } from 'src/common/enums/environment.enum';
+import { defaultLogLevels } from '../common/constants/default-log-level.constant';
 
 export default registerAs('logging', () => {
   const environment = (process.env.NODE_ENV as ENV) ?? ENV.DEV;

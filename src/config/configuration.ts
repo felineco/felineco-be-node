@@ -1,6 +1,6 @@
 // src/config/configuration.ts
 import { registerAs } from '@nestjs/config';
-import { ENV } from './constants/environment.enum';
+import { ENV } from 'src/common/enums/environment.enum';
 
 export default registerAs('app', () => ({
   environment: (process.env.NODE_ENV as ENV) ?? ENV.DEV,

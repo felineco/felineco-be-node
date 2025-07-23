@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ACCESS_TOKEN_COOKIE_NAME } from 'src/config/constants/cookie-names';
+import { ACCESS_TOKEN_COOKIE_NAME } from 'src/common/constants/cookie-names.constant';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 @Injectable()

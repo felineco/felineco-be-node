@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
-} from 'src/config/constants/cookie-names';
+} from 'src/common/constants/cookie-names.constant';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { Action, Privilege } from '../src/common/enums/permission.enum';

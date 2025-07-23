@@ -19,7 +19,7 @@ import { Request as ExpressRequest, Response } from 'express';
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
-} from 'src/config/constants/cookie-names';
+} from 'src/common/constants/cookie-names.constant';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { FacebookAuthGuard } from '../guards/facebook-auth.guard';
 import { GoogleAuthGuard } from '../guards/google-auth.guard';

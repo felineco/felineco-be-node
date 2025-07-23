@@ -1,7 +1,6 @@
-// src/config/enums/default-log-level.enum.ts
+// src/common/constants/default-log-level.constant.ts
 import { LogLevel } from '@nestjs/common';
-import { ENV } from './environment.enum';
-
+import { ENV } from '../enums/environment.enum';
 // Default log levels based on environment
 export const defaultLogLevels: Record<ENV, LogLevel[]> = {
   [ENV.DEV]: ['error', 'warn', 'log', 'debug', 'verbose'],
