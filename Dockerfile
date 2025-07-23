@@ -38,5 +38,19 @@ COPY --from=build /usr/src/app/dist ./dist
 # Expose the application port
 EXPOSE $PORT
 
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001
+
+# Change ownership to non-root user
+RUN chown -R nestjs:nodejs /usr/src/app
+USER nestjs
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:$PORT/api/health || exit 1
+
 # Start the application
 CMD ["node", "dist/main"]
