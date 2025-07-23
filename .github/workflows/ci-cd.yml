@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: node-be
+  IMAGE_NAME: doctor-note
   TAG: be-latest
 
 jobs:
@@ -94,7 +94,7 @@ jobs:
         env:
           CONTAINER_NAME: ${{ env.IMAGE_NAME }}
           IMAGE_TAG: ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{env.TAG}}
-          ENV_FILE: ~/env/node-be.env
+          ENV_FILE: ~/env/be.env
           PORT: 8080
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << EOF
@@ -134,3 +134,9 @@ jobs:
             curl -f http://localhost:$PORT/api/health \
               && echo "✅ Health check passed!" || echo "❌ Health check failed!"
           EOF
+
+      - name: Cleanup SSH key
+        if: always() # Run even if deploy fails
+        run: |
+          rm -f ~/.ssh/id_rsa
+          rm -f ~/.ssh/known_hosts
