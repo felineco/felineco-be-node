@@ -2,6 +2,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import mongoose from 'mongoose';
+import { MongoIdPathParamDto } from 'src/common/dtos/mongo-id-path-param.dto';
 import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
 import {
   PagingResponse,
@@ -143,25 +144,25 @@ describe('UsersController', () => {
 
   describe('findOne', () => {
     it('should return a user by id', async () => {
-      const userId = mockUserId.toString();
+      const param: MongoIdPathParamDto = { id: mockUserId.toString() };
 
       usersService.findOne.mockResolvedValue(mockUserWithRoles);
 
-      const result = await controller.findOne(userId);
+      const result = await controller.findOne(param);
 
-      expect(usersService.findOne).toHaveBeenCalledWith(userId);
-      expect(result._id).toBe(userId);
+      expect(usersService.findOne).toHaveBeenCalledWith(param.id);
+      expect(result._id).toBe(param.id);
       expect(result.email).toBe(mockUserWithRoles.email);
     });
 
     it('should throw BadRequestException when user not found', async () => {
-      const userId = 'nonexistent-id';
+      const param: MongoIdPathParamDto = { id: 'nonexistent-id' };
 
       usersService.findOne.mockRejectedValue(
         new BadRequestException('User not found'),
       );
 
-      await expect(controller.findOne(userId)).rejects.toThrow(
+      await expect(controller.findOne(param)).rejects.toThrow(
         BadRequestException,
       );
     });
@@ -169,7 +170,7 @@ describe('UsersController', () => {
 
   describe('update', () => {
     it('should update a user', async () => {
-      const userId = mockUserId.toString();
+      const param: MongoIdPathParamDto = { id: mockUserId.toString() };
       const updateUserDto: UpdateUserDto = {
         email: 'updated@example.com',
         roleIds: [mockRoleId.toString()],
@@ -181,10 +182,10 @@ describe('UsersController', () => {
       };
       usersService.update.mockResolvedValue(updatedUser);
 
-      const result = await controller.update(userId, updateUserDto);
+      const result = await controller.update(param, updateUserDto);
 
       expect(usersService.update).toHaveBeenCalledWith(
-        userId,
+        param.id,
         updateUserDto,
         updateUserDto.roleIds,
       );
@@ -194,30 +195,30 @@ describe('UsersController', () => {
 
   describe('remove', () => {
     it('should remove a user', async () => {
-      const userId = mockUserId.toString();
+      const param: MongoIdPathParamDto = { id: mockUserId.toString() };
 
       usersService.remove.mockResolvedValue(undefined);
 
-      const result = await controller.remove(userId);
+      const result = await controller.remove(param);
 
-      expect(usersService.remove).toHaveBeenCalledWith(userId);
+      expect(usersService.remove).toHaveBeenCalledWith(param.id);
       expect(result).toEqual({ message: 'User deleted successfully' });
     });
   });
 
   describe('addRoles', () => {
     it('should add roles to a user', async () => {
-      const userId = mockUserId.toString();
+      const param: MongoIdPathParamDto = { id: mockUserId.toString() };
       const addRolesDto: AddRolesDto = {
         roleIds: [mockRoleId.toString()],
       };
 
       usersService.addRoles.mockResolvedValue(mockUserWithRoles);
 
-      const result = await controller.addRoles(userId, addRolesDto);
+      const result = await controller.addRoles(param, addRolesDto);
 
       expect(usersService.addRoles).toHaveBeenCalledWith(
-        userId,
+        param.id,
         addRolesDto.roleIds,
       );
       expect(result.roles).toHaveLength(1);
@@ -226,7 +227,7 @@ describe('UsersController', () => {
 
   describe('removeRoles', () => {
     it('should remove roles from a user', async () => {
-      const userId = mockUserId.toString();
+      const param: MongoIdPathParamDto = { id: mockUserId.toString() };
       const removeRolesDto: RemoveRolesDto = {
         roleIds: [mockRoleId.toString()],
       };
@@ -234,10 +235,10 @@ describe('UsersController', () => {
       const userWithoutRoles = { ...mockUserWithRoles, roles: [] };
       usersService.removeRoles.mockResolvedValue(userWithoutRoles);
 
-      const result = await controller.removeRoles(userId, removeRolesDto);
+      const result = await controller.removeRoles(param, removeRolesDto);
 
       expect(usersService.removeRoles).toHaveBeenCalledWith(
-        userId,
+        param.id,
         removeRolesDto.roleIds,
       );
       expect(result.roles).toHaveLength(0);

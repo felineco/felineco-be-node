@@ -1,25 +1,20 @@
 // test/auth.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+import { TestingModule } from '@nestjs/testing';
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
 } from 'src/common/constants/cookie-names.constant';
+import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { PermissionsService } from 'src/modules/permissions/services/permissions.service';
+import { RolesService } from 'src/modules/roles/services/roles.service';
 import * as request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { Action, Privilege } from '../src/common/enums/permission.enum';
-import { AppLoggerService } from '../src/common/services/logger.service';
-import { PermissionsService } from '../src/modules/permissions/services/permissions.service';
-import { RolesService } from '../src/modules/roles/services/roles.service';
-import {
-  clearTestDatabase,
-  setupTestDatabase,
-  teardownTestDatabase,
-} from './utils/database-setup';
-import { normalizeCookies } from './utils/test-helpers';
+import { testINestApp } from 'test/setup/test-setup';
+import { normalizeCookies } from 'test/utils/test-helpers';
 
 describe('Auth & Users (e2e)', () => {
   let app: INestApplication;
+  let moduleFixture: TestingModule;
   let permissionsService: PermissionsService;
   let rolesService: RolesService;
 
@@ -37,28 +32,13 @@ describe('Auth & Users (e2e)', () => {
   };
 
   beforeAll(async () => {
-    // Setup in-memory MongoDB
-    await setupTestDatabase();
-
-    // Create NestJS application
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-
-    // Apply the same global configuration as in main.ts
-    const logger = new AppLoggerService().setContext('E2E-Test');
-    app.useLogger(logger);
-    // Set global prefix
-    app.setGlobalPrefix('api');
-
-    await app.init();
-
-    // Get services for test data setup
+    app = testINestApp.getApp();
+    moduleFixture = testINestApp.getModuleFixture();
     permissionsService =
       moduleFixture.get<PermissionsService>(PermissionsService);
     rolesService = moduleFixture.get<RolesService>(RolesService);
+
+    return;
   });
 
   beforeEach(async () => {
@@ -89,12 +69,12 @@ describe('Auth & Users (e2e)', () => {
   });
 
   afterEach(async () => {
-    await clearTestDatabase(app);
+    await testINestApp.clearTestDatabase();
   });
 
   afterAll(async () => {
-    await app.close();
-    await teardownTestDatabase();
+    // Template
+    return;
   });
 
   describe('/api/users (POST)', () => {
@@ -106,13 +86,13 @@ describe('Auth & Users (e2e)', () => {
 
       expect(response.body).toMatchObject({
         statusCode: 201,
-        timestamp: expect.any(String) as string,
+        timestamp: expect.any(String),
         data: {
-          _id: expect.any(String) as string,
+          _id: expect.any(String),
           email: regularUserData.email,
           roles: [],
-          createdAt: expect.any(String) as Date,
-          updatedAt: expect.any(String) as Date,
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
         },
       });
 
@@ -204,12 +184,12 @@ describe('Auth & Users (e2e)', () => {
 
       expect(response.body).toMatchObject({
         statusCode: 200,
-        timestamp: expect.any(String) as string,
+        timestamp: expect.any(String),
         data: {
-          accessToken: expect.any(String) as string,
-          refreshToken: expect.any(String) as string,
-          accessTokenExpiresAt: expect.any(String) as Date,
-          refreshTokenExpiresAt: expect.any(String) as Date,
+          accessToken: expect.any(String),
+          refreshToken: expect.any(String),
+          accessTokenExpiresAt: expect.any(String),
+          refreshTokenExpiresAt: expect.any(String),
         },
       });
 
@@ -291,7 +271,7 @@ describe('Auth & Users (e2e)', () => {
         })
         .expect(200);
 
-      refreshToken = loginResponse.body?.data?.refreshToken as string;
+      refreshToken = loginResponse.body?.data?.refreshToken;
     });
 
     it('should refresh token successfully', async () => {
@@ -303,10 +283,10 @@ describe('Auth & Users (e2e)', () => {
       expect(response.body).toMatchObject({
         statusCode: 200,
         data: {
-          accessToken: expect.any(String) as string,
-          refreshToken: expect.any(String) as string,
-          accessTokenExpiresAt: expect.any(String) as Date,
-          refreshTokenExpiresAt: expect.any(String) as Date,
+          accessToken: expect.any(String),
+          refreshToken: expect.any(String),
+          accessTokenExpiresAt: expect.any(String),
+          refreshTokenExpiresAt: expect.any(String),
         },
       });
     });
@@ -361,7 +341,7 @@ describe('Auth & Users (e2e)', () => {
         })
         .expect(200);
 
-      const accessToken = loginResponse.body?.data?.accessToken as string;
+      const accessToken = loginResponse.body?.data?.accessToken;
 
       // 3. Access protected resource (get user details)
       await request(app.getHttpServer()).get(`/api/users`).expect(401);

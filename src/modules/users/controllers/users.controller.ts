@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { MongoIdPathParamDto } from 'src/common/dtos/mongo-id-path-param.dto';
 import { PagingResponse } from 'src/common/dtos/page-response.dto';
 import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
 import { AddRolesDto } from '../dtos/requests/add-roles.dto';
@@ -53,19 +54,21 @@ export class UsersController {
 
   @Auth()
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
-    const user = await this.usersService.findOne(id);
+  async findOne(
+    @Param() params: MongoIdPathParamDto,
+  ): Promise<UserResponseDto> {
+    const user = await this.usersService.findOne(params.id);
     return fromUserWithPopulateToResponseDto(user);
   }
 
   @Auth()
   @Patch(':id')
   async update(
-    @Param('id') id: string,
+    @Param() params: MongoIdPathParamDto,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     const updatedUser = await this.usersService.update(
-      id,
+      params.id,
       updateUserDto,
       updateUserDto.roleIds,
     );
@@ -74,19 +77,21 @@ export class UsersController {
 
   @Auth()
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<{ message: string }> {
-    await this.usersService.remove(id);
+  async remove(
+    @Param() params: MongoIdPathParamDto,
+  ): Promise<{ message: string }> {
+    await this.usersService.remove(params.id);
     return { message: 'User deleted successfully' };
   }
 
   @Auth()
   @Post(':id/roles')
   async addRoles(
-    @Param('id') id: string,
+    @Param() params: MongoIdPathParamDto,
     @Body() addRolesDto: AddRolesDto,
   ): Promise<UserResponseDto> {
     const updatedUser = await this.usersService.addRoles(
-      id,
+      params.id,
       addRolesDto.roleIds,
     );
     return fromUserWithPopulateToResponseDto(updatedUser);
@@ -95,11 +100,11 @@ export class UsersController {
   @Auth()
   @Delete(':id/roles')
   async removeRoles(
-    @Param('id') id: string,
+    @Param() params: MongoIdPathParamDto,
     @Body() removeRolesDto: RemoveRolesDto,
   ): Promise<UserResponseDto> {
     const updatedUser = await this.usersService.removeRoles(
-      id,
+      params.id,
       removeRolesDto.roleIds,
     );
     return fromUserWithPopulateToResponseDto(updatedUser);

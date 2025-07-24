@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { MongoIdPathParamDto } from 'src/common/dtos/mongo-id-path-param.dto';
 import { PagingQueryOptions } from 'src/common/dtos/page-query-options.dto';
 import { PagingResponse } from 'src/common/dtos/page-response.dto';
 import { AddPermissionsDto } from '../dtos/requests/add-permissions.dto';
@@ -49,18 +50,20 @@ export class RolesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<RoleResponseDto> {
-    const role = await this.rolesService.findOne(id);
+  async findOne(
+    @Param() params: MongoIdPathParamDto,
+  ): Promise<RoleResponseDto> {
+    const role = await this.rolesService.findOne(params.id);
     return fromRoleWithPermissionsToResponseDto(role);
   }
 
   @Patch(':id')
   async update(
-    @Param('id') id: string,
+    @Param() params: MongoIdPathParamDto,
     @Body() updateRoleDto: UpdateRoleDto,
   ): Promise<RoleResponseDto> {
     const updatedRole = await this.rolesService.update(
-      id,
+      params.id,
       { roleName: updateRoleDto.roleName },
       updateRoleDto.permissionIds,
     );
@@ -68,18 +71,20 @@ export class RolesController {
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<{ message: string }> {
-    await this.rolesService.remove(id);
+  async remove(
+    @Param() params: MongoIdPathParamDto,
+  ): Promise<{ message: string }> {
+    await this.rolesService.remove(params.id);
     return { message: 'Role deleted successfully' };
   }
 
   @Post(':id/permissions')
   async addPermissions(
-    @Param('id') id: string,
+    @Param() params: MongoIdPathParamDto,
     @Body() addPermissionsDto: AddPermissionsDto,
   ): Promise<RoleResponseDto> {
     const updatedRole = await this.rolesService.addPermissions(
-      id,
+      params.id,
       addPermissionsDto.permissionIds,
     );
     return fromRoleWithPermissionsToResponseDto(updatedRole);
@@ -87,11 +92,11 @@ export class RolesController {
 
   @Delete(':id/permissions')
   async removePermissions(
-    @Param('id') id: string,
+    @Param() params: MongoIdPathParamDto,
     @Body() removePermissionsDto: RemovePermissionsDto,
   ): Promise<RoleResponseDto> {
     const updatedRole = await this.rolesService.removePermissions(
-      id,
+      params.id,
       removePermissionsDto.permissionIds,
     );
     return fromRoleWithPermissionsToResponseDto(updatedRole);

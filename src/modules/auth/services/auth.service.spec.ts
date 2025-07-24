@@ -165,7 +165,7 @@ describe('AuthService', () => {
       );
 
       await expect(service.validateUser(email, password)).rejects.toThrow(
-        BadRequestException,
+        UnauthorizedException,
       );
     });
   });

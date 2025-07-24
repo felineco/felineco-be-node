@@ -10,6 +10,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { MongoIdPathParamDto } from 'src/common/dtos/mongo-id-path-param.dto';
 import { PagingQueryOptions } from 'src/common/dtos/page-query-options.dto';
 import { PagingResponse } from 'src/common/dtos/page-response.dto';
 import { CreatePermissionDto } from '../dtos/requests/create-permission.dto';
@@ -53,29 +54,33 @@ export class PermissionsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<PermissionResponseDto> {
-    const permission = await this.permissionsService.findOne(id);
+  async findOne(
+    @Param() params: MongoIdPathParamDto,
+  ): Promise<PermissionResponseDto> {
+    const permission = await this.permissionsService.findOne(params.id);
     return fromPermissionToResponseDto(permission);
   }
 
   @Patch(':id')
   async update(
-    @Param('id') id: string,
+    @Param() params: MongoIdPathParamDto,
     @Body() updatePermissionDto: UpdatePermissionDto,
   ): Promise<PermissionResponseDto> {
     const updateData: Partial<Permission> = {
       ...updatePermissionDto,
     };
     const updatedPermission = await this.permissionsService.update(
-      id,
+      params.id,
       updateData,
     );
     return fromPermissionToResponseDto(updatedPermission);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string): Promise<{ message: string }> {
-    await this.permissionsService.remove(id);
+  async remove(
+    @Param() params: MongoIdPathParamDto,
+  ): Promise<{ message: string }> {
+    await this.permissionsService.remove(params.id);
     return { message: 'Permission deleted successfully' };
   }
 }

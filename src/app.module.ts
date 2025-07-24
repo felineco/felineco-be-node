@@ -30,14 +30,14 @@ import { S3Module } from './modules/s3/s3.module';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig, authConfig, loggingConfig, s3Config],
-      envFilePath: '.env',
+      envFilePath: '.env', // Mostly for local development
     }),
     // Mongoose Database
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         uri: configService.get<string>('database.mongodb.uri'),
-        ...((await configService.get('database.mongodb')) ?? {}),
+        dbName: configService.get<string>('database.mongodb.dbName'),
       }),
       inject: [ConfigService],
     }),
