@@ -31,8 +31,13 @@ jobs:
       - name: Run ESLint
         run: yarn lint
 
-      - name: Run tests
+      - name: Run unit tests
         run: yarn test
+
+      - name: Run e2e tests (This should include the .env file)
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+          yarn test:e2e
 
   build:
     # needs: test
