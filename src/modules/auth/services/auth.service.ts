@@ -22,12 +22,25 @@ interface GoogleUserInfo {
 
 @Injectable()
 export class AuthService {
+  private jwtSecret: string;
+  private jwtExpiresIn: string;
+  private jwtRefreshExpiresIn: string;
+
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
     private cryptoService: CryptoService,
-  ) {}
+  ) {
+    this.jwtSecret = this.configService.get<string>('auth.jwt.secret') ?? '';
+    if (!this.jwtSecret) {
+      throw new BadRequestException('JWT secret is not configured');
+    }
+    this.jwtExpiresIn =
+      this.configService.get<string>('auth.jwt.expiresIn') ?? '15m';
+    this.jwtRefreshExpiresIn =
+      this.configService.get<string>('auth.jwt.refreshExpiresIn') ?? '7d';
+  }
 
   async validateUser(
     email: string,
@@ -66,7 +79,7 @@ export class AuthService {
       const payload = this.jwtService.verify<RefreshTokenPayload>(
         refreshToken,
         {
-          secret: this.configService.get<string>('auth.jwt.secret'),
+          secret: this.jwtSecret,
         },
       );
 
@@ -79,6 +92,19 @@ export class AuthService {
       return this.generateTokens(payload.sub);
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
+  async validateToken(token: string): Promise<JwtPayload | null> {
+    try {
+      // Verify the token
+      const payload = this.jwtService.verify<JwtPayload>(token, {
+        secret: this.jwtSecret,
+      });
+      return payload;
+    } catch {
+      // If token is invalid or expired, return null
+      return null;
     }
   }
 
@@ -159,10 +185,8 @@ export class AuthService {
     const permissions = await this.usersService.getUserPermissions(userId);
 
     // Get token expiration settings
-    const accessTokenExpiresIn =
-      this.configService.get<string>('auth.jwt.expiresIn') ?? '1d';
-    const refreshTokenExpiresIn =
-      this.configService.get<string>('auth.jwt.refreshExpiresIn') ?? '7d';
+    const accessTokenExpiresIn = this.jwtExpiresIn;
+    const refreshTokenExpiresIn = this.jwtRefreshExpiresIn;
 
     // Calculate expiration timestamps
     const accessTokenExpiresAt =
@@ -177,7 +201,7 @@ export class AuthService {
       permissions,
     };
 
-    const secret = this.configService.get<string>('auth.jwt.secret');
+    const secret = this.jwtSecret;
 
     // Generate access token
     const accessToken = this.jwtService.sign(payload, {

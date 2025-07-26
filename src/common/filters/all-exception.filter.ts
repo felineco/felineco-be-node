@@ -1,8 +1,8 @@
 // src/common/filters/http-exception.filter.ts
 import {
-  ExceptionFilter,
-  Catch,
   ArgumentsHost,
+  Catch,
+  ExceptionFilter,
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
@@ -11,7 +11,7 @@ import { AppLoggerService } from '../services/logger.service';
 @Catch() // No parameters means catch all exceptions
 export class AllExceptionsFilter implements ExceptionFilter {
   constructor(private readonly logger: AppLoggerService) {
-    this.logger.setContext('AllExceptionsFilter');
+    this.logger.setContext(AllExceptionsFilter.name);
   }
 
   catch(exception: unknown, host: ArgumentsHost) {

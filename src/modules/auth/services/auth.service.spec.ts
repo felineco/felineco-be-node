@@ -19,7 +19,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: jest.Mocked<UsersService>;
   let jwtService: jest.Mocked<JwtService>;
-  let configService: jest.Mocked<ConfigService>;
   let cryptoService: jest.Mocked<CryptoService>;
 
   // Mock data
@@ -91,7 +90,14 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn(),
+            get: jest.fn().mockImplementation((key: string) => {
+              const configs: Record<string, string> = {
+                'auth.jwt.secret': 'test-secret',
+                'auth.jwt.expiresIn': '1d',
+                'auth.jwt.refreshExpiresIn': '7d',
+              };
+              return configs[key];
+            }),
           },
         },
         {
@@ -108,18 +114,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
     usersService = module.get(UsersService);
     jwtService = module.get(JwtService);
-    configService = module.get(ConfigService);
     cryptoService = module.get(CryptoService);
-
-    // Default config mocks
-    configService.get.mockImplementation((key: string) => {
-      const configs: Record<string, any> = {
-        'auth.jwt.secret': 'test-secret',
-        'auth.jwt.expiresIn': '1d',
-        'auth.jwt.refreshExpiresIn': '7d',
-      };
-      return configs[key];
-    });
   });
 
   afterEach(() => {
@@ -237,6 +232,54 @@ describe('AuthService', () => {
       await expect(service.refreshToken('invalid.token')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('validateToken', () => {
+    it('should return payload for valid token', async () => {
+      const validToken = 'valid.jwt.token';
+      const expectedPayload = {
+        sub: mockUserId.toString(),
+        permissions: [mockPermission],
+        iat: Date.now(),
+        exp: Date.now() + 86400000,
+      };
+
+      jwtService.verify.mockReturnValue(expectedPayload);
+
+      const result = await service.validateToken(validToken);
+
+      expect(jwtService.verify).toHaveBeenCalledWith(validToken, {
+        secret: 'test-secret',
+      });
+      expect(result).toEqual(expectedPayload);
+    });
+
+    it('should return null for invalid token', async () => {
+      const invalidToken = 'invalid.jwt.token';
+
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('Invalid token');
+      });
+
+      const result = await service.validateToken(invalidToken);
+
+      expect(jwtService.verify).toHaveBeenCalledWith(invalidToken, {
+        secret: 'test-secret',
+      });
+      expect(result).toBeNull();
+    });
+
+    it('should return null for expired token', async () => {
+      const expiredToken = 'expired.jwt.token';
+
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('Token expired');
+      });
+
+      const result = await service.validateToken(expiredToken);
+
+      expect(result).toBeNull();
     });
   });
 

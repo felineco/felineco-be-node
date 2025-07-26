@@ -7,7 +7,6 @@ import {
   HttpStatus,
   Post,
   Req,
-  Request,
   Res,
   UnauthorizedException,
   UseGuards,
@@ -49,7 +48,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
-    @Request() req: RequestWithUser,
+    @Req() req: RequestWithUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthTokenInterface> {
     const tokens = await this.authService.login(req.user);

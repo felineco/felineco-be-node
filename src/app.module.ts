@@ -20,6 +20,7 @@ import { CommonServicesModule } from './common/services/common-services.module';
 import grpcConfig from './config/grpc.config';
 import loggingConfig from './config/logging.config';
 import s3Config from './config/s3.config';
+import { AiAssistantsModule } from './modules/ai-assistants/ai-assistants.module';
 import { GrpcModule } from './modules/grpc-clients/grpc.module';
 import { HealthModule } from './modules/health/health.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
@@ -56,6 +57,8 @@ import { TestModule } from './modules/test/test.module';
     CommonServicesModule,
     // Test Module for dev to play around
     TestModule,
+    // WebSocketGateway
+    AiAssistantsModule,
     // Feature modules
     HealthModule,
     AuthModule,
