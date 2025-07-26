@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package transcription;
+
+// Transcription request
+message TranscribeAudioRequest {
+    repeated string audio_urls = 1;
+    string instruction = 2;
+    string language = 3;
+}

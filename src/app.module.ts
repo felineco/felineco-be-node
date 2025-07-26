@@ -17,19 +17,29 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { CommonServicesModule } from './common/services/common-services.module';
+import grpcConfig from './config/grpc.config';
 import loggingConfig from './config/logging.config';
 import s3Config from './config/s3.config';
+import { GrpcModule } from './modules/grpc-clients/grpc.module';
 import { HealthModule } from './modules/health/health.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { S3Module } from './modules/s3/s3.module';
+import { TestModule } from './modules/test/test.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, appConfig, authConfig, loggingConfig, s3Config],
+      load: [
+        databaseConfig,
+        appConfig,
+        authConfig,
+        loggingConfig,
+        s3Config,
+        grpcConfig,
+      ],
       envFilePath: '.env', // Mostly for local development
     }),
     // Mongoose Database
@@ -44,6 +54,8 @@ import { S3Module } from './modules/s3/s3.module';
 
     // Common Services Module
     CommonServicesModule,
+    // Test Module for dev to play around
+    TestModule,
     // Feature modules
     HealthModule,
     AuthModule,
@@ -51,6 +63,7 @@ import { S3Module } from './modules/s3/s3.module';
     RolesModule,
     PermissionsModule,
     S3Module,
+    GrpcModule,
   ],
   controllers: [],
   providers: [

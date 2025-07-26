@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package note_generation;
+
+// Note generation request
+message GenerateNotesRequestItem {
+    int32 id = 1;
+    string label = 2;
+    string guide = 3;
+    string sample = 4;
+}
+
+message GenerateNotesRequest {
+    repeated GenerateNotesRequestItem note_fields = 1;
+    repeated string image_urls = 2;
+    repeated string audio_transcriptions = 3;
+    string prompt = 4;
+    string language = 5;
+}
+
+// Output fields extraction request
+message ExtractOutputFieldsRequest {
+    repeated string image_urls = 1;
+    string prompt = 2;
+    string language = 3;
+}

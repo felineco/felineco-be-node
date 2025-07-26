@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package transcription;
+
+// Transcription response
+message TranscribeAudioResponse {
+    repeated string audio_transcriptions = 1;
+}

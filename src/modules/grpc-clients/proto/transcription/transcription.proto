@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package transcription;
+
+import "transcription_requests.proto";
+import "transcription_responses.proto";
+
+// The AI service definition
+service TranscriptionService {
+    rpc TranscribeAudio(TranscribeAudioRequest) returns (TranscribeAudioResponse);
+}

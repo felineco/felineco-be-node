@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package note_generation;
+
+// Note generation response
+message GenerateNotesResponseItem {
+    int32 id = 1;
+    string label = 2;
+    string value = 3;
+}
+
+message GenerateNotesResponse {
+    repeated GenerateNotesResponseItem note_fields = 1;
+}
+
+// Output fields extraction response
+message ExtractOutputFieldsResponseItem {
+    string label = 1;
+    string guide = 2;
+}
+
+message ExtractOutputFieldsResponse {
+    repeated ExtractOutputFieldsResponseItem output_fields = 1;
+}

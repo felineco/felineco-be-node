@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package note_generation;
+
+import "note_generation_requests.proto";
+import "note_generation_responses.proto";
+
+// The AI service definition
+service NoteGenerationService {
+    rpc GenerateNotes(GenerateNotesRequest) returns (GenerateNotesResponse);
+    rpc ExtractOutputFields(ExtractOutputFieldsRequest) returns (ExtractOutputFieldsResponse);
+}
