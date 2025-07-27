@@ -11,15 +11,15 @@ export enum AssistantWsEventResponseEnum {
   ERROR = 'error',
 }
 
-const broadcastPrefix = 'broadcast:';
+const syncPrefix = 'sync:';
 
-export enum AssistantWsEventBroadcastEnum {
-  INITIALIZE = `${broadcastPrefix}initialize`,
-  ADD_IMAGES = `${broadcastPrefix}add_images`,
-  DELETE_IMAGES = `${broadcastPrefix}delete_images`,
-  ADD_AUDIOS = `${broadcastPrefix}add_audios`,
-  DELETE_AUDIOS = `${broadcastPrefix}delete_audios`,
-  UPDATE_FIELDS = `${broadcastPrefix}update_fields`,
-  DELETE_FIELDS = `${broadcastPrefix}delete_fields`,
-  PONG = `${broadcastPrefix}pong`,
+export enum SyncEventBroadcastEnum {
+  INITIALIZE = `${syncPrefix}initialize`,
+  ADD_IMAGES = `${syncPrefix}add_images`,
+  DELETE_IMAGES = `${syncPrefix}delete_images`,
+  ADD_AUDIOS = `${syncPrefix}add_audios`,
+  DELETE_AUDIOS = `${syncPrefix}delete_audios`,
+  UPDATE_FIELDS = `${syncPrefix}update_fields`,
+  DELETE_FIELDS = `${syncPrefix}delete_fields`,
+  PONG = `${syncPrefix}pong`,
 }

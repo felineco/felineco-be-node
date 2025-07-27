@@ -19,9 +19,9 @@ export interface OutputField {
 }
 
 export interface UserModel {
-  images: UploadedImage[];
-  audios: UploadedAudio[];
-  noteFields: OutputField[];
-  reminderFields: OutputField[];
-  warningFields: OutputField[];
+  images: Map<string, UploadedImage>;
+  audios: Map<string, UploadedAudio>;
+  noteFields: Map<number, OutputField>;
+  reminderFields: Map<number, OutputField>;
+  warningFields: Map<number, OutputField>;
 }

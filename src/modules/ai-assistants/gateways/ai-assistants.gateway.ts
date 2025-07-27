@@ -17,12 +17,19 @@ import { AppLoggerService } from 'src/common/services/logger.service';
 import { AuthService } from 'src/modules/auth/services/auth.service';
 import { WebSocketExceptionFilter } from '../../../common/filters/websocket-exception.filter';
 import { WebSocketResponseInterceptor } from '../../../common/interceptors/websocket-response.interceptor';
+import { WsInitializeDto } from '../dtos/responses/ws-initialize.dto';
 import {
   AssistantWsEventRequestEnum,
   AssistantWsEventResponseEnum,
+  SyncEventBroadcastEnum,
 } from '../enums/assistant-ws-event.enum';
 import { RoomNameEnum } from '../enums/room-name.enum';
-import { UserModel } from '../interfaces/models.interface';
+import {
+  OutputField,
+  UploadedAudio,
+  UploadedImage,
+  UserModel,
+} from '../interfaces/models.interface';
 import { CustomSocket } from '../interfaces/socket.interface';
 
 @UseFilters(WebSocketExceptionFilter)
@@ -68,6 +75,13 @@ export class AiAssistantsGateway
       const token = authHeader.split(' ')[1];
       const payload = await this.authService.validateToken(token);
       if (payload !== null) {
+        // Send session ID to client
+        client.emit(AssistantWsEventResponseEnum.SESSION_CREATED, {
+          socketId: client.id,
+          timestamp: new Date().toISOString(),
+          msgId: randomUUID(),
+        } as WsResponse<{}>);
+
         // Store userId in socket data for later cleanup
         client.data.userId = payload.sub;
 
@@ -77,13 +91,40 @@ export class AiAssistantsGateway
         if (room.size === 0) {
           // Room is empty, create a new user model for that user
           const userModel: UserModel = {
-            images: [],
-            audios: [],
-            noteFields: [],
-            reminderFields: [],
-            warningFields: [],
+            images: new Map(),
+            audios: new Map(),
+            noteFields: new Map(),
+            reminderFields: new Map(),
+            warningFields: new Map(),
           };
           this.userModelMap.set(payload.sub, userModel);
+        } else {
+          // Room exists, send the existing user model
+          const existingUserModel = this.userModelMap.get(payload.sub);
+          if (existingUserModel === undefined) {
+            this.logger.error(
+              `User model not found for userId: ${payload.sub} - disconnecting client`,
+            );
+            client.disconnect();
+            return;
+          }
+          // Convert Maps to Arrays for serialization
+          const serializedUserModel = {
+            images: Array.from(existingUserModel.images.values()),
+            audios: Array.from(existingUserModel.audios.values()),
+            noteFields: Array.from(existingUserModel.noteFields.values()),
+            reminderFields: Array.from(
+              existingUserModel.reminderFields.values(),
+            ),
+            warningFields: Array.from(existingUserModel.warningFields.values()),
+          };
+
+          client.emit(SyncEventBroadcastEnum.INITIALIZE, {
+            data: serializedUserModel,
+            socketId: client.id,
+            timestamp: new Date().toISOString(),
+            msgId: randomUUID(),
+          } as WsResponse<WsInitializeDto>);
         }
 
         // Add client to a room for broadcasting (based on user ID)
@@ -91,12 +132,6 @@ export class AiAssistantsGateway
         // Add to a notifications room
         await client.join(RoomNameEnum.GENERAL_NOTIFICATIONS);
 
-        // Send session ID to client
-        client.emit(AssistantWsEventResponseEnum.SESSION_CREATED, {
-          socketId: client.id,
-          timestamp: new Date().toISOString(),
-          msgId: randomUUID(),
-        } as WsResponse<{}>);
         return;
       }
     }
@@ -157,5 +192,55 @@ export class AiAssistantsGateway
         );
       }
     }
+  }
+
+  addImagesToUserModel(userId: string, images: UploadedImage[]): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      images.forEach((image) => userModel.images.set(image.id, image));
+    }
+  }
+
+  deleteImagesFromUserModel(userId: string, imageIds: string[]): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      imageIds.forEach((imageId) => userModel.images.delete(imageId));
+    }
+  }
+
+  addAudiosToUserModel(userId: string, audios: UploadedAudio[]): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      audios.forEach((audio) => userModel.audios.set(audio.id, audio));
+    }
+  }
+
+  deleteAudiosFromUserModel(userId: string, audioIds: string[]): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      audioIds.forEach((audioId) => userModel.audios.delete(audioId));
+    }
+  }
+
+  updateNotesInUserModel(userId: string, notes: OutputField[]): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      notes.forEach((field) => {
+        userModel.noteFields.set(field.id, field);
+      });
+    }
+  }
+
+  deleteNotesFromUserModel(userId: string, noteIds: number[]): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      noteIds.forEach((fieldId) => {
+        userModel.noteFields.delete(fieldId);
+      });
+    }
+  }
+
+  getUserModel(userId: string): UserModel | undefined {
+    return this.userModelMap.get(userId);
   }
 }
