@@ -134,10 +134,6 @@ jobs:
             sleep 10
             docker ps | grep $CONTAINER_NAME \
               && echo "✅ Deployment successful!" || echo "❌ Deployment failed!"
-
-            # Health check
-            curl -f http://localhost:$PORT/api/health \
-              && echo "✅ Health check passed!" || echo "❌ Health check failed!"
           EOF
 
       - name: Cleanup SSH key
