@@ -109,12 +109,43 @@ export class AiAssistantsController {
       },
     );
 
+    const reminderFields: OutputField[] =
+      generateNotesResponse.reminder_fields.map((reminderField) => ({
+        id: reminderField.id,
+        label: reminderField.label,
+        value: reminderField.value,
+        guide: '',
+        sample: '',
+      }));
+    const warningFields: OutputField[] =
+      generateNotesResponse.warning_fields.map((warningField) => ({
+        id: warningField.id,
+        label: warningField.label,
+        value: warningField.value,
+        guide: '',
+        sample: '',
+      }));
+
     this.aiAssistantsGateway.updateNotesInUserModel(userId, updatedNotes);
+    this.aiAssistantsGateway.updateRemindersInUserModel(userId, reminderFields);
+    this.aiAssistantsGateway.updateWarningsInUserModel(userId, warningFields);
 
     // Step 4: Broadcast the updated notes to all connected clients
     this.broadcastMessage<OutputField[]>({
       data: updatedNotes,
-      event: SyncEventBroadcastEnum.UPDATE_FIELDS,
+      event: SyncEventBroadcastEnum.UPDATE_NOTE_FIELDS,
+      roomId: userId,
+      originSocketId: 'broadcast',
+    });
+    this.broadcastMessage<OutputField[]>({
+      data: reminderFields,
+      event: SyncEventBroadcastEnum.UPDATE_REMINDER_FIELDS,
+      roomId: userId,
+      originSocketId: 'broadcast',
+    });
+    this.broadcastMessage<OutputField[]>({
+      data: warningFields,
+      event: SyncEventBroadcastEnum.UPDATE_WARNING_FIELDS,
       roomId: userId,
       originSocketId: 'broadcast',
     });
@@ -167,7 +198,7 @@ export class AiAssistantsController {
     // Broadcast the new fields to all connected clients
     this.broadcastMessage<OutputField[]>({
       data: newNoteFields,
-      event: SyncEventBroadcastEnum.UPDATE_FIELDS,
+      event: SyncEventBroadcastEnum.UPDATE_NOTE_FIELDS,
       roomId: userId,
       originSocketId: 'broadcast',
     });

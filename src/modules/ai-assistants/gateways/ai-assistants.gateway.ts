@@ -240,6 +240,32 @@ export class AiAssistantsGateway
     }
   }
 
+  updateRemindersInUserModel(
+    userId: string,
+    reminderFields: OutputField[],
+  ): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      // Set reminder fields to the new map
+      userModel.reminderFields = new Map(
+        reminderFields.map((field) => [field.id, field]),
+      );
+    }
+  }
+
+  updateWarningsInUserModel(
+    userId: string,
+    warningFields: OutputField[],
+  ): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      // Set warning fields to the new map
+      userModel.warningFields = new Map(
+        warningFields.map((field) => [field.id, field]),
+      );
+    }
+  }
+
   getUserModel(userId: string): UserModel | undefined {
     return this.userModelMap.get(userId);
   }

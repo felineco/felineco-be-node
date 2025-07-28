@@ -11,6 +11,8 @@ message GenerateNotesResponseItem {
 
 message GenerateNotesResponse {
     repeated GenerateNotesResponseItem note_fields = 1;
+    repeated GenerateNotesResponseItem reminder_fields = 2;
+    repeated GenerateNotesResponseItem warning_fields = 3;
 }
 
 // Output fields extraction response

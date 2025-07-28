@@ -136,7 +136,7 @@ export class SyncController {
 
     this.broadcastMessage<OutputField[]>({
       data: notes,
-      event: SyncEventBroadcastEnum.UPDATE_FIELDS,
+      event: SyncEventBroadcastEnum.UPDATE_NOTE_FIELDS,
       roomId: req.user.sub,
       originSocketId: updateFieldsDto.socketId,
     });
@@ -154,7 +154,7 @@ export class SyncController {
 
     this.broadcastMessage<number[]>({
       data: noteIds,
-      event: SyncEventBroadcastEnum.DELETE_FIELDS,
+      event: SyncEventBroadcastEnum.DELETE_NOTE_FIELDS,
       roomId: req.user.sub,
       originSocketId: deleteFieldsDto.socketId,
     });

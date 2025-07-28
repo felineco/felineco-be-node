@@ -25,6 +25,8 @@ export interface GenerateNotesResponseItem {
 
 export interface GenerateNotesResponse {
   note_fields: GenerateNotesResponseItem[];
+  reminder_fields: GenerateNotesResponseItem[];
+  warning_fields: GenerateNotesResponseItem[];
 }
 
 export interface ExtractOutputFieldsRequest {
