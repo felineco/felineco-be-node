@@ -9,6 +9,7 @@ import {
   MongooseHealthIndicator,
 } from '@nestjs/terminus';
 import * as os from 'os';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 @ApiTags('Health')
 @Controller('health')
@@ -20,13 +21,33 @@ export class HealthController {
     private disk: DiskHealthIndicator,
   ) {}
 
-  //  @Auth({
-  //     privilege: Privilege.USER,
-  //     action: Action.MANAGE,
-  //   })
   @Get()
   @HealthCheck()
   check() {
+    // Get system-appropriate path for disk check
+    const diskPath = this.getDiskPath();
+
+    return this.health.check([
+      // Check database connection
+      () => this.db.pingCheck('mongodb', { timeout: 5000 }),
+
+      // Check memory usage
+      () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024), // 300MB
+      () => this.memory.checkRSS('memory_rss', 300 * 1024 * 1024), // 300MB
+
+      // Check disk usage with platform-specific path
+      () =>
+        this.disk.checkStorage('disk', {
+          path: diskPath,
+          thresholdPercent: 0.9,
+        }),
+    ]);
+  }
+
+  @Auth()
+  @Get('auth-enabled')
+  @HealthCheck()
+  checkWithAuthEnabled() {
     // Get system-appropriate path for disk check
     const diskPath = this.getDiskPath();
 
