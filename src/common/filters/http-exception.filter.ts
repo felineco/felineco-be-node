@@ -6,6 +6,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ErrorResponse } from '../dtos/error-response.dto';
 import { AppLoggerService } from '../services/logger.service';
 
 @Catch(HttpException)
@@ -44,7 +45,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       method: request.method,
       message: message,
       error: exception.name,
-    };
+    } as ErrorResponse;
 
     // Log the error with appropriate level based on status code
     if (status >= 500) {

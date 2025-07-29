@@ -6,6 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { ErrorResponse } from '../dtos/error-response.dto';
 import { AppLoggerService } from '../services/logger.service';
 
 @Catch() // No parameters means catch all exceptions
@@ -39,6 +40,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       path: request.url,
       method: request.method,
       message: message,
-    });
+    } as ErrorResponse);
   }
 }
