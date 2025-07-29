@@ -24,7 +24,10 @@ async function bootstrap() {
   bootstrapLogger.log(`API prefix set to: ${apiPrefix}`);
 
   // CORS
-  app.enableCors();
+  app.enableCors({
+    origin: ['http://localhost:5173'],
+    credentials: true,
+  });
   bootstrapLogger.log('CORS enabled');
 
   // Swagger documentation
