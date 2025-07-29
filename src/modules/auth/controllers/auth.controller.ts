@@ -19,11 +19,17 @@ import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
 } from 'src/common/constants/cookie-names.constant';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import {
+  fromUserWithPopulateToResponseDto,
+  UserResponseDto,
+} from 'src/modules/users/dtos/responses/user-response.dto';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
 import { FacebookAuthGuard } from '../guards/facebook-auth.guard';
 import { GoogleAuthGuard } from '../guards/google-auth.guard';
 import { LocalAuthGuard } from '../guards/local-auth.guard';
 import { AuthTokenInterface } from '../interfaces/auth-token.interface';
+import { RequestWithJwtPayload } from '../interfaces/jwt-request.interface';
 import { RequestWithUser } from '../interfaces/local-request.interface';
 import { AuthService } from '../services/auth.service';
 
@@ -95,6 +101,16 @@ export class AuthController {
   async logout(@Res({ passthrough: true }) res: Response): Promise<void> {
     this.clearCookies(res);
     return;
+  }
+
+  @Auth()
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async getCurrentUser(
+    @Req() req: RequestWithJwtPayload,
+  ): Promise<UserResponseDto> {
+    const user = await this.authService.getCurrentUser(req.user.sub);
+    return fromUserWithPopulateToResponseDto(user);
   }
 
   @Get('google')

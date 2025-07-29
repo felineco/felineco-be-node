@@ -108,6 +108,12 @@ export class AuthService {
     }
   }
 
+  async getCurrentUser(
+    userId: string,
+  ): Promise<UserWithPopulateRoleAndPermission> {
+    return this.usersService.findOne(userId);
+  }
+
   // New method to validate Google users
   async validateOrCreateGoogleUser(
     userInfo: GoogleUserInfo,

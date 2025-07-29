@@ -324,6 +324,73 @@ describe('Auth & Users (e2e)', () => {
     });
   });
 
+  describe('/api/auth/me (GET)', () => {
+    let accessToken: string;
+    let userId: string;
+
+    beforeEach(async () => {
+      // Create user and login to get access token
+      const createResponse = await request(app.getHttpServer())
+        .post('/api/users')
+        .send(adminUserData)
+        .expect(201);
+
+      userId = createResponse.body?.data?._id;
+
+      const loginResponse = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({
+          email: adminUserData.email,
+          password: adminUserData.password,
+        })
+        .expect(200);
+
+      accessToken = loginResponse.body?.data?.accessToken;
+    });
+
+    it('should return current user information when authenticated', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${accessToken}`])
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        statusCode: 200,
+        timestamp: expect.any(String),
+        data: {
+          _id: userId,
+          email: adminUserData.email,
+          roles: expect.any(Array),
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+        },
+      });
+
+      // Verify roles are populated
+      expect(response.body.data.roles).toHaveLength(1);
+      expect(response.body.data.roles[0]).toMatchObject({
+        _id: adminRoleId,
+        name: 'Admin',
+        permissions: expect.any(Array),
+      });
+
+      // Password should not be returned
+      expect(response.body?.data?.hashPassword).toBeUndefined();
+      expect(response.body?.data?.password).toBeUndefined();
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer()).get('/api/auth/me').expect(401);
+    });
+
+    it('should return 401 with invalid token', async () => {
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=invalid-token`])
+        .expect(401);
+    });
+  });
+
   describe('Integration: User creation -> Login -> Access protected resource', () => {
     it('should create user, login, and access protected endpoint', async () => {
       // 1. Create user

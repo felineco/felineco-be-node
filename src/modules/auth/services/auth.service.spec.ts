@@ -78,6 +78,7 @@ describe('AuthService', () => {
             findByEmail: jest.fn(),
             create: jest.fn(),
             getUserPermissions: jest.fn(),
+            findOne: jest.fn(),
           },
         },
         {
@@ -280,6 +281,35 @@ describe('AuthService', () => {
       const result = await service.validateToken(expiredToken);
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getCurrentUser', () => {
+    it('should return user with populated roles and permissions', async () => {
+      const userId = mockUserId.toString();
+
+      usersService.findOne.mockResolvedValue(mockUserWithPermissions);
+
+      const result = await service.getCurrentUser(userId);
+
+      expect(usersService.findOne).toHaveBeenCalledWith(userId);
+      expect(result).toEqual(mockUserWithPermissions);
+      expect(result.roles).toHaveLength(1);
+      expect(result.roles[0].permissions).toHaveLength(1);
+    });
+
+    it('should throw error when user is not found', async () => {
+      const userId = 'nonexistent-id';
+
+      usersService.findOne.mockRejectedValue(
+        new BadRequestException(`User with ID "${userId}" not found`),
+      );
+
+      await expect(service.getCurrentUser(userId)).rejects.toThrow(
+        new BadRequestException(`User with ID "${userId}" not found`),
+      );
+
+      expect(usersService.findOne).toHaveBeenCalledWith(userId);
     });
   });
 

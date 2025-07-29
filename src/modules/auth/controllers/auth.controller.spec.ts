@@ -56,6 +56,7 @@ describe('AuthController', () => {
             refreshToken: jest.fn(),
             loginWithGoogle: jest.fn(),
             loginWithFacebook: jest.fn(),
+            getCurrentUser: jest.fn(),
           },
         },
         {
@@ -206,6 +207,45 @@ describe('AuthController', () => {
           sameSite: 'strict',
         }),
       );
+    });
+  });
+
+  describe('getCurrentUser', () => {
+    it('should return current user information', async () => {
+      const mockUserWithRoles = {
+        ...mockUser,
+        roles: [
+          {
+            _id: new mongoose.Types.ObjectId(),
+            roleName: 'Admin',
+            permissions: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      };
+
+      const mockRequestWithJwt: any = {
+        user: {
+          sub: mockUserId.toString(),
+          permissions: [],
+        },
+      };
+
+      authService.getCurrentUser.mockResolvedValue(mockUserWithRoles);
+
+      const result = await controller.getCurrentUser(mockRequestWithJwt);
+
+      expect(authService.getCurrentUser).toHaveBeenCalledWith(
+        mockUserId.toString(),
+      );
+      expect(result).toEqual({
+        _id: mockUserId.toString(),
+        email: mockUser.email,
+        roles: expect.any(Array),
+        createdAt: mockUser.createdAt,
+        updatedAt: mockUser.updatedAt,
+      });
     });
   });
 
