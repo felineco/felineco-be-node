@@ -8,6 +8,7 @@ export interface UploadedImage {
 export interface UploadedAudio {
   id: string;
   url: string;
+  duration?: number; // Duration in seconds
 }
 
 export interface OutputField {

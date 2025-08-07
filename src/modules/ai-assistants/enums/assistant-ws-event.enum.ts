@@ -20,7 +20,7 @@ export enum SyncEventBroadcastEnum {
   ADD_AUDIOS = `${syncPrefix}add_audios`,
   DELETE_AUDIOS = `${syncPrefix}delete_audios`,
   UPDATE_NOTE_FIELDS = `${syncPrefix}update_note_fields`,
-  DELETE_NOTE_FIELDS = `${syncPrefix}delete_note_fields`,
+  DELETE_FIELDS = `${syncPrefix}delete_fields`,
   UPDATE_REMINDER_FIELDS = `${syncPrefix}update_reminder_fields`,
   UPDATE_WARNING_FIELDS = `${syncPrefix}update_warning_fields`,
   PONG = `${syncPrefix}pong`,

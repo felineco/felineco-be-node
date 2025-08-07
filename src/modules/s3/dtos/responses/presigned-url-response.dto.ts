@@ -10,10 +10,11 @@ export class PresignedUrlResponseDto {
   presignedUrl: string;
 
   @ApiProperty({
-    example: 'uploads/images/1234567890-my-file.jpg',
-    description: 'S3 key/path where the file will be stored',
+    example:
+      'https://your-bucket.s3.amazonaws.com/images/1234567890-my-file.jpg',
+    description: 'Url where the file will be stored',
   })
-  key: string;
+  url: string;
 
   @ApiProperty({
     example: 600,

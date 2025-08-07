@@ -10,6 +10,7 @@ export class S3Service {
   private readonly s3Client: S3Client;
   private readonly bucket: string;
   private readonly presignedUrlExpiration: number;
+  private readonly s3Domain: string;
 
   constructor(private configService: ConfigService) {
     this.s3Client = new S3Client({
@@ -24,18 +25,20 @@ export class S3Service {
     this.bucket = this.configService.get<string>('s3.bucket') ?? '';
     this.presignedUrlExpiration =
       this.configService.get<number>('s3.presignedUrlExpiration') ?? 600;
+    this.s3Domain = this.configService.get<string>('s3.domain') ?? '';
   }
 
   async generatePresignedUrl(
     type: FileType,
     filename?: string,
+    folderName?: string,
   ): Promise<{
     presignedUrl: string;
-    key: string;
+    url: string;
     expiresIn: number;
     expiresAt: string;
   }> {
-    const key = this.generateS3Key(type, filename);
+    const key = this.generateS3Key(type, filename, folderName);
 
     const command = new PutObjectCommand({
       Bucket: this.bucket,
@@ -50,21 +53,25 @@ export class S3Service {
 
     return {
       presignedUrl,
-      key,
+      url: `${this.s3Domain}/${key}`,
       expiresIn: this.presignedUrlExpiration,
       expiresAt: expiresAt.toISOString(),
     };
   }
 
-  private generateS3Key(type: FileType, filename?: string): string {
+  private generateS3Key(
+    type: FileType,
+    filename?: string,
+    folderName?: string,
+  ): string {
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
 
-    const folder = type === FileType.IMAGE ? 'images' : 'audios';
+    const mainFolderName = type === FileType.IMAGE ? 'images' : 'audios';
     const extension =
       this.getFileExtension(filename) || this.getDefaultExtension(type);
 
-    return `${folder}/${timestamp}-${randomString}${extension}`;
+    return `${mainFolderName}/${folderName}/${timestamp}-${randomString}${extension}`;
   }
 
   private getFileExtension(filename?: string): string {

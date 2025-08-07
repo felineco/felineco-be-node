@@ -124,8 +124,8 @@ export class AuthController {
   @UseGuards(GoogleAuthGuard)
   async googleAuthCallback(
     @Req() req: RequestWithUser,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+    @Res() res: Response,
+  ): Promise<void> {
     // After successful Google authentication, create JWT tokens
     const tokens = await this.authService.loginWithGoogle(req.user);
 
@@ -145,8 +145,8 @@ export class AuthController {
   @UseGuards(FacebookAuthGuard)
   async facebookAuthCallback(
     @Req() req: RequestWithUser,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+    @Res() res: Response,
+  ): Promise<void> {
     // After successful Facebook authentication, create JWT tokens
     const tokens = await this.authService.loginWithFacebook(req.user);
 

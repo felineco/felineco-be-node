@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { RolesModule } from '../roles/roles.module';
-import { UsersController } from './controllers/users.controller';
+// import { UsersController } from './controllers/users.controller';
 import { User, UserSchema } from './schemas/user.schema';
 import { UsersService } from './services/users.service';
 
@@ -13,7 +13,9 @@ const UserMongooseModule = MongooseModule.forFeature([
 
 @Module({
   imports: [UserMongooseModule, RolesModule, PermissionsModule],
-  controllers: [UsersController],
+  controllers: [
+    // UsersController
+  ],
   providers: [UsersService],
   exports: [
     UsersService,

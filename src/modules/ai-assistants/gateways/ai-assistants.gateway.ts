@@ -9,6 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { randomUUID } from 'crypto';
 import { Server } from 'socket.io';
+import { ACCESS_TOKEN_COOKIE_NAME } from 'src/common/constants/cookie-names.constant';
 import {
   WsHandlerReturnInterface,
   WsResponse,
@@ -31,6 +32,67 @@ import {
   UserModel,
 } from '../interfaces/models.interface';
 import { CustomSocket } from '../interfaces/socket.interface';
+
+// Sample data
+const sampleNoteFields: OutputField[] = [
+  {
+    id: 1,
+    label: 'Diagnosis',
+    value: '',
+    guide: "Provide a detailed description of the patient's condition.",
+    sample:
+      'Feline asthma, presenting with intermittent coughing and mild respiratory distress.',
+  },
+  {
+    id: 2,
+    label: 'Treatment Plan',
+    value: '',
+    guide: 'Outline the recommended treatment plan for the patient.',
+    sample:
+      'Initiate inhaled corticosteroids (Fluticasone 110mcg BID via AeroKat chamber). Consider adding bronchodilator if symptoms persist.',
+  },
+  {
+    id: 3,
+    label: 'Follow-up',
+    value: '',
+    guide: 'Describe the recommended follow-up schedule and monitoring.',
+    sample:
+      'Recheck in 2 weeks to assess response to therapy and adjust medications as needed.',
+  },
+  {
+    id: 4,
+    label: 'Owner Instructions',
+    value: '',
+    guide:
+      'List instructions for the owner regarding home care and monitoring.',
+    sample:
+      'Monitor for coughing, wheezing, or increased respiratory effort. Ensure proper inhaler technique.',
+  },
+  {
+    id: 5,
+    label: 'Medications',
+    value: '',
+    guide: 'List all prescribed medications and their dosages.',
+    sample:
+      'Fluticasone 110mcg BID via inhaler. Albuterol as rescue inhaler if acute symptoms develop.',
+  },
+  {
+    id: 6,
+    label: 'Dietary Recommendations',
+    value: '',
+    guide: 'Provide dietary advice or restrictions if applicable.',
+    sample:
+      'Continue current diet. Consider hypoallergenic diet if symptoms do not improve.',
+  },
+  {
+    id: 7,
+    label: 'Environmental Modifications',
+    value: '',
+    guide: 'Suggest any environmental changes to help the patient.',
+    sample:
+      'Minimize exposure to dust, smoke, and aerosols. Use air purifiers if possible.',
+  },
+];
 
 @UseFilters(WebSocketExceptionFilter)
 @UseInterceptors(WebSocketResponseInterceptor)
@@ -70,9 +132,21 @@ export class AiAssistantsGateway
 
     // Extract Bearer token from headers
     const authHeader = headers.authorization;
-    // Validate the token
+    // Extract the cookie if needed
+    const cookie = headers.cookie;
+    // Extract the token from either the header or cookie
+    let token: string | undefined;
     if (authHeader !== undefined && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
+      token = authHeader.split(' ')[1];
+    } else if (cookie !== undefined) {
+      const cookieToken = cookie
+        .split('; ')
+        .find((c) => c.startsWith(`${ACCESS_TOKEN_COOKIE_NAME}=`));
+      token = cookieToken === undefined ? undefined : cookieToken.split('=')[1];
+    }
+
+    // Validate the token
+    if (token !== undefined) {
       const payload = await this.authService.validateToken(token);
       if (payload !== null) {
         // Send session ID to client
@@ -93,39 +167,38 @@ export class AiAssistantsGateway
           const userModel: UserModel = {
             images: new Map(),
             audios: new Map(),
-            noteFields: new Map(),
+            noteFields: new Map(
+              sampleNoteFields.map((field) => [field.id, { ...field }]),
+            ),
             reminderFields: new Map(),
             warningFields: new Map(),
           };
           this.userModelMap.set(payload.sub, userModel);
-        } else {
-          // Room exists, send the existing user model
-          const existingUserModel = this.userModelMap.get(payload.sub);
-          if (existingUserModel === undefined) {
-            this.logger.error(
-              `User model not found for userId: ${payload.sub} - disconnecting client`,
-            );
-            client.disconnect();
-            return;
-          }
-          // Convert Maps to Arrays for serialization
-          const serializedUserModel = {
-            images: Array.from(existingUserModel.images.values()),
-            audios: Array.from(existingUserModel.audios.values()),
-            noteFields: Array.from(existingUserModel.noteFields.values()),
-            reminderFields: Array.from(
-              existingUserModel.reminderFields.values(),
-            ),
-            warningFields: Array.from(existingUserModel.warningFields.values()),
-          };
-
-          client.emit(SyncEventBroadcastEnum.INITIALIZE, {
-            data: serializedUserModel,
-            socketId: client.id,
-            timestamp: new Date().toISOString(),
-            msgId: randomUUID(),
-          } as WsResponse<WsInitializeDto>);
         }
+        // Room exists, send the existing user model (for both new and existing users)
+        const existingUserModel = this.userModelMap.get(payload.sub);
+        if (existingUserModel === undefined) {
+          this.logger.error(
+            `User model not found for userId: ${payload.sub} - disconnecting client`,
+          );
+          client.disconnect();
+          return;
+        }
+        // Convert Maps to Arrays for serialization
+        const serializedUserModel = {
+          images: Array.from(existingUserModel.images.values()),
+          audios: Array.from(existingUserModel.audios.values()),
+          noteFields: Array.from(existingUserModel.noteFields.values()),
+          reminderFields: Array.from(existingUserModel.reminderFields.values()),
+          warningFields: Array.from(existingUserModel.warningFields.values()),
+        };
+
+        client.emit(SyncEventBroadcastEnum.INITIALIZE, {
+          data: serializedUserModel,
+          socketId: client.id,
+          timestamp: new Date().toISOString(),
+          msgId: randomUUID(),
+        } as WsResponse<WsInitializeDto>);
 
         // Add client to a room for broadcasting (based on user ID)
         await client.join(payload.sub);
@@ -136,6 +209,7 @@ export class AiAssistantsGateway
       }
     }
 
+    // If authentication fails, emit an error and disconnect
     client.emit(AssistantWsEventResponseEnum.ERROR, {
       message: 'Authentication required',
       socketId: client.id,
@@ -231,15 +305,6 @@ export class AiAssistantsGateway
     }
   }
 
-  deleteNotesFromUserModel(userId: string, noteIds: number[]): void {
-    const userModel = this.userModelMap.get(userId);
-    if (userModel) {
-      noteIds.forEach((fieldId) => {
-        userModel.noteFields.delete(fieldId);
-      });
-    }
-  }
-
   updateRemindersInUserModel(
     userId: string,
     reminderFields: OutputField[],
@@ -263,6 +328,17 @@ export class AiAssistantsGateway
       userModel.warningFields = new Map(
         warningFields.map((field) => [field.id, field]),
       );
+    }
+  }
+
+  deleteFieldsFromUserModel(userId: string, fieldIds: number[]): void {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      fieldIds.forEach((fieldId) => {
+        userModel.noteFields.delete(fieldId);
+        userModel.reminderFields.delete(fieldId);
+        userModel.warningFields.delete(fieldId);
+      });
     }
   }
 

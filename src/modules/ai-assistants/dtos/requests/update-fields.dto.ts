@@ -32,7 +32,6 @@ class OutputFieldDto {
     description: 'Value of the field',
   })
   @IsString()
-  @IsNotEmpty()
   value: string;
 
   @ApiProperty({
@@ -40,7 +39,6 @@ class OutputFieldDto {
     description: 'Guide text for the field',
   })
   @IsString()
-  @IsNotEmpty()
   guide: string;
 
   @ApiProperty({
@@ -48,7 +46,6 @@ class OutputFieldDto {
     description: 'Sample value for the field',
   })
   @IsString()
-  @IsNotEmpty()
   sample: string;
 }
 

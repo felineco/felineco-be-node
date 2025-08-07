@@ -128,17 +128,13 @@ export class AuthService {
       const randomPassword = await this.cryptoService.randomPassword();
 
       // Create new user
-      const newUser = await this.usersService.create({
+      await this.usersService.create({
         email: userInfo.email,
         password: randomPassword, // This will be hashed by the users service
         // You might want to assign default roles here
       });
 
-      const userWithRoles: UserWithPopulateRoleAndPermission = {
-        ...newUser,
-        roles: [],
-      };
-      return userWithRoles;
+      return this.usersService.findByEmail(userInfo.email);
     }
   }
   // New method to validate Facebook users
@@ -156,17 +152,12 @@ export class AuthService {
       const randomPassword = await this.cryptoService.randomPassword();
 
       // Create new user
-      const newUser = await this.usersService.create({
+      await this.usersService.create({
         email: userInfo.email,
         password: randomPassword,
         // You might want to assign default roles here
       });
-
-      const userWithRoles: UserWithPopulateRoleAndPermission = {
-        ...newUser,
-        roles: [],
-      };
-      return userWithRoles;
+      return await this.usersService.findByEmail(userInfo.email);
     }
   }
 

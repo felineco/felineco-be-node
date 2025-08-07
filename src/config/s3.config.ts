@@ -10,4 +10,5 @@ export default registerAs('s3', () => ({
     process.env.S3_PRESIGNED_URL_EXPIRATION ?? '600',
     10,
   ), // 10 minutes in seconds
+  domain: process.env.S3_DOMAIN ?? '',
 }));

@@ -4,6 +4,8 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsNotEmpty,
+  IsNumber,
+  IsOptional,
   IsString,
   IsUrl,
   ValidateNested,
@@ -26,6 +28,14 @@ class UploadedAudioDto {
   @IsUrl()
   @IsNotEmpty()
   url: string;
+
+  @ApiProperty({
+    example: 120,
+    description: 'Duration of the audio in seconds',
+  })
+  @IsOptional()
+  @IsNumber()
+  duration?: number;
 }
 
 export class AddAudiosDto extends AiAssistantBaseRequestDto {
