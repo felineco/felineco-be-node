@@ -1,9 +1,103 @@
+// src/modules/users/users.controller.spec.ts
+import { BadRequestException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import mongoose from 'mongoose';
+import { LanguageEnum } from 'src/common/enums/language.enum';
+import { UsersController } from '../controllers/users.controller';
+import { CreateUserDto } from '../dtos/requests/create-user.dto';
+import { User } from '../schemas/user.schema';
+import { UsersService } from '../services/users.service';
+
 describe('UsersController', () => {
-  it('should have tests', () => {
-    // Placeholder for the test suite
-    expect(true).toBe(true); // Placeholder for the test suite
+  let controller: UsersController;
+  let usersService: jest.Mocked<UsersService>;
+
+  // Mock data
+  const mockUserId = new mongoose.Types.ObjectId();
+  const mockRoleId = new mongoose.Types.ObjectId();
+
+  const mockUser: User = {
+    _id: mockUserId,
+    email: 'test@example.com',
+    hashPassword: 'hashedpassword123',
+    roles: [mockRoleId],
+    language: LanguageEnum.EN_US,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockUsersService = {
+    create: jest.fn(),
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    addRoles: jest.fn(),
+    removeRoles: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [UsersController],
+      providers: [
+        {
+          provide: UsersService,
+          useValue: mockUsersService,
+        },
+      ],
+    }).compile();
+
+    controller = module.get<UsersController>(UsersController);
+    usersService = module.get(UsersService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('create', () => {
+    it('should create a new user', async () => {
+      const createUserDto: CreateUserDto = {
+        email: 'test@example.com',
+        password: 'password123',
+        roleIds: [mockRoleId.toString()],
+      };
+
+      usersService.create.mockResolvedValue(mockUser);
+
+      const result = await controller.create(createUserDto);
+
+      expect(usersService.create).toHaveBeenCalledWith({
+        email: createUserDto.email,
+        password: createUserDto.password,
+        roleIds: createUserDto.roleIds,
+      });
+      expect(result).toEqual({
+        _id: mockUserId.toString(),
+        email: mockUser.email,
+        roles: [mockRoleId.toString()],
+        createdAt: mockUser.createdAt,
+        updatedAt: mockUser.updatedAt,
+      });
+    });
+
+    it('should throw BadRequestException when user creation fails', async () => {
+      const createUserDto: CreateUserDto = {
+        email: 'test@example.com',
+        password: 'password123',
+      };
+
+      usersService.create.mockRejectedValue(
+        new BadRequestException('User already exists'),
+      );
+
+      await expect(controller.create(createUserDto)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
   });
 });
+
 // // src/modules/users/users.controller.spec.ts
 // import { BadRequestException } from '@nestjs/common';
 // import { Test, TestingModule } from '@nestjs/testing';

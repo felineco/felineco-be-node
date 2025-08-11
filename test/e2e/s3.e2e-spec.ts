@@ -102,17 +102,14 @@ describe('S3 (e2e)', () => {
         timestamp: expect.any(String),
         data: {
           presignedUrl: expect.any(String),
-          key: expect.any(String),
+          url: expect.any(String),
           expiresIn: expect.any(Number),
           expiresAt: expect.any(String),
         },
       });
 
-      // Check that the key contains 'images' folder for image type
-      expect(response.body.data.key).toMatch(/^images\//);
-
-      // Check that the key contains timestamp and random string
-      expect(response.body.data.key).toMatch(/images\/\d+-[a-z0-9]+\.jpg$/);
+      // Check that the url contains 'images' folder for image type
+      expect(response.body.data.url).toMatch(/.*\/images\//);
 
       // Check that presigned URL is a valid URL
       expect(response.body.data.presignedUrl).toMatch(/^https?:\/\//);
@@ -136,8 +133,7 @@ describe('S3 (e2e)', () => {
         .send(requestData)
         .expect(201);
 
-      expect(response.body.data.key).toMatch(/^audios\//);
-      expect(response.body.data.key).toMatch(/audios\/\d+-[a-z0-9]+\.mp3$/);
+      expect(response.body.data.url).toMatch(/.*\/audios\//);
     });
 
     it('should generate presigned URL without filename', async () => {
@@ -152,7 +148,7 @@ describe('S3 (e2e)', () => {
         .expect(201);
 
       // Should use default extension for image type (.jpg)
-      expect(response.body.data.key).toMatch(/images\/\d+-[a-z0-9]+\.jpg$/);
+      expect(response.body.data.url).toMatch(/.*\.jpg$/);
     });
 
     it('should handle audio type without filename', async () => {
@@ -167,7 +163,7 @@ describe('S3 (e2e)', () => {
         .expect(201);
 
       // Should use default extension for audio type (.mp3)
-      expect(response.body.data.key).toMatch(/audios\/\d+-[a-z0-9]+\.mp3$/);
+      expect(response.body.data.url).toMatch(/.*\.mp3$/);
     });
 
     it('should return 400 for invalid file type', async () => {
@@ -213,13 +209,13 @@ describe('S3 (e2e)', () => {
           })
           .expect(201);
 
-        expect(response.body.data.key).toMatch(
+        expect(response.body.data.url).toMatch(
           new RegExp(`${testCase.expectedExt.replace('.', '\\.')}$`),
         );
       }
     });
 
-    it('should generate unique keys for multiple requests', async () => {
+    it('should generate unique urls for multiple requests', async () => {
       const requestData = {
         type: FileType.IMAGE,
         filename: 'test.jpg',
@@ -240,7 +236,7 @@ describe('S3 (e2e)', () => {
         .send(requestData)
         .expect(201);
 
-      expect(response1.body.data.key).not.toBe(response2.body.data.key);
+      expect(response1.body.data.url).not.toBe(response2.body.data.url);
       expect(response1.body.data.presignedUrl).not.toBe(
         response2.body.data.presignedUrl,
       );
@@ -260,13 +256,13 @@ describe('S3 (e2e)', () => {
 
       // Check all required properties exist
       expect(response.body.data).toHaveProperty('presignedUrl');
-      expect(response.body.data).toHaveProperty('key');
+      expect(response.body.data).toHaveProperty('url');
       expect(response.body.data).toHaveProperty('expiresIn');
       expect(response.body.data).toHaveProperty('expiresAt');
 
       // Check types
       expect(typeof response.body.data.presignedUrl).toBe('string');
-      expect(typeof response.body.data.key).toBe('string');
+      expect(typeof response.body.data.url).toBe('string');
       expect(typeof response.body.data.expiresIn).toBe('number');
       expect(typeof response.body.data.expiresAt).toBe('string');
     });

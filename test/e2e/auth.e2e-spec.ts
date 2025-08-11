@@ -411,11 +411,11 @@ describe('Auth & Users (e2e)', () => {
       const accessToken = loginResponse.body?.data?.accessToken;
 
       // 3. Access protected resource (get user details)
-      await request(app.getHttpServer()).get(`/api/users`).expect(401);
+      await request(app.getHttpServer()).get(`/api/auth/me`).expect(401);
 
       // 4. Access protected resource (get user details)
       await request(app.getHttpServer())
-        .get(`/api/users`)
+        .get(`/api/auth/me`)
         .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${accessToken}`])
         .expect(200);
     });
