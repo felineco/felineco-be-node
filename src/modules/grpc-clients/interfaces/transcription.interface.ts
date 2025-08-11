@@ -9,7 +9,7 @@ export interface TranscribeAudioRequest {
 }
 
 export interface TranscribeAudioResponse {
-  audio_transcriptions: string[];
+  audioTranscriptions: string[];
 }
 
 export interface TranscriptionService {

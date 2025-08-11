@@ -10,9 +10,9 @@ export interface GenerateNotesRequestItem {
 }
 
 export interface GenerateNotesRequest {
-  note_fields: GenerateNotesRequestItem[];
-  image_urls: string[];
-  audio_transcriptions: string[];
+  noteFields: GenerateNotesRequestItem[];
+  imageUrls: string[];
+  audioTranscriptions: string[];
   prompt: string;
   language: string;
 }
@@ -24,13 +24,13 @@ export interface GenerateNotesResponseItem {
 }
 
 export interface GenerateNotesResponse {
-  note_fields: GenerateNotesResponseItem[];
-  reminder_fields: GenerateNotesResponseItem[];
-  warning_fields: GenerateNotesResponseItem[];
+  noteFields: GenerateNotesResponseItem[];
+  reminderFields: GenerateNotesResponseItem[];
+  warningFields: GenerateNotesResponseItem[];
 }
 
 export interface ExtractOutputFieldsRequest {
-  image_urls: string[];
+  imageUrls: string[];
   prompt: string;
   language: string;
 }
@@ -41,7 +41,7 @@ export interface ExtractOutputFieldsResponseItem {
 }
 
 export interface ExtractOutputFieldsResponse {
-  output_fields: ExtractOutputFieldsResponseItem[];
+  outputFields: ExtractOutputFieldsResponseItem[];
 }
 
 export interface NoteGenerationService {

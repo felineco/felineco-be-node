@@ -2,6 +2,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Exclude } from 'class-transformer';
 import mongoose, { HydratedDocument } from 'mongoose';
+import { LanguageEnum } from 'src/common/enums/language.enum';
 import { TABLE_NAME } from 'src/common/enums/table-name.enum';
 import {
   Role,
@@ -30,6 +31,12 @@ export class User {
     default: [],
   })
   roles: mongoose.Types.ObjectId[];
+
+  @Prop({
+    enum: Object.values(LanguageEnum),
+    default: LanguageEnum.VI_VN,
+  })
+  language: LanguageEnum;
 
   createdAt: Date;
   updatedAt: Date;

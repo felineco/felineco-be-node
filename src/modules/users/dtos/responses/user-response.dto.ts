@@ -19,6 +19,9 @@ export class UserResponseDto {
   @ApiProperty({ type: [RoleResponseDto] })
   roles: RoleResponseDto[] | string[];
 
+  @ApiProperty({ example: 'en-US' })
+  language: string;
+
   @ApiProperty({ example: '2025-05-03T10:30:00Z' })
   createdAt: Date;
 
@@ -45,6 +48,7 @@ export function fromUserWithPopulateToResponseDto(
   responseDto.roles = user.roles.map((role) =>
     fromRoleWithPermissionsToResponseDto(role),
   );
+  responseDto.language = user.language;
   responseDto.createdAt = user.createdAt;
   responseDto.updatedAt = user.updatedAt;
   return responseDto;

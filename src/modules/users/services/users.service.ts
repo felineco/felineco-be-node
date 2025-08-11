@@ -3,7 +3,9 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model } from 'mongoose';
 import { AccessControl } from 'src/common/decorators/authorization-policy.decorator.ts';
+import { Action, Privilege } from 'src/common/enums/permission.enum';
 import { CryptoService } from 'src/common/services/crypto.service';
+import { JwtPayload } from 'src/modules/auth/interfaces/jwt-payload.interface';
 import {
   Role,
   RoleDocument,
@@ -267,7 +269,7 @@ export class UsersService {
   }
 
   // This function for auth service to get user permissions
-  async getUserPermissions(id: string): Promise<AccessControl[]> {
+  async getUserJwtPayload(id: string): Promise<JwtPayload> {
     const user = await this.userModel
       .findById(id)
       .populate<{ roles: RoleWWithPopulatePermission[] }>({
@@ -283,7 +285,10 @@ export class UsersService {
     }
 
     if (user.roles.length === 0) {
-      return [];
+      return {
+        sub: user._id.toString(),
+        permissions: [],
+      };
     }
 
     // Use a Set to collect unique permissions
@@ -300,13 +305,20 @@ export class UsersService {
       }
     });
 
+    const permissions: AccessControl[] = Array.from(uniquePermissions).map(
+      (permString) => {
+        const [privilege, action] = permString.split(':');
+        return {
+          privilege: privilege as Privilege,
+          action: action as Action,
+        };
+      },
+    );
+
     // Convert the unique permissions back to AccessControl objects
-    return Array.from(uniquePermissions).map((permString) => {
-      const [privilege, action] = permString.split(':');
-      return {
-        privilege,
-        action,
-      } as AccessControl;
-    });
+    return {
+      sub: user._id.toString(),
+      permissions,
+    };
   }
 }

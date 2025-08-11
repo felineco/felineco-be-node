@@ -363,9 +363,12 @@ describe('UsersService', () => {
 
       userModel.findById.mockReturnValue(createMockQuery(userWithPermissions));
 
-      const result = await service.getUserPermissions(userId);
+      const result = await service.getUserJwtPayload(userId);
 
-      expect(result).toEqual([mockPermission]);
+      expect(result).toEqual({
+        sub: mockUserId.toString(),
+        permissions: [mockPermission],
+      });
     });
 
     it('should throw BadRequestException if user not found', async () => {
@@ -373,7 +376,7 @@ describe('UsersService', () => {
 
       userModel.findById.mockReturnValue(createMockQuery(null));
 
-      await expect(service.getUserPermissions(userId)).rejects.toThrow(
+      await expect(service.getUserJwtPayload(userId)).rejects.toThrow(
         new BadRequestException(`User with ID "${userId}" not found`),
       );
     });

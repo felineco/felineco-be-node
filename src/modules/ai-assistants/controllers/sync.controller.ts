@@ -53,78 +53,6 @@ export class SyncController {
   }
 
   @Auth()
-  @Post('notes/update')
-  @HttpCode(HttpStatus.OK)
-  async updateNoteFields(
-    @Body() updateFieldsDto: UpdateFieldsDto,
-    @Req() req: RequestWithJwtPayload,
-  ): Promise<void> {
-    const notes: OutputField[] = updateFieldsDto.fields;
-    this.aiAssistantsGateway.updateNotesInUserModel(req.user.sub, notes);
-
-    this.broadcastMessage<OutputField[]>({
-      data: notes,
-      event: SyncEventBroadcastEnum.UPDATE_NOTE_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: updateFieldsDto.socketId,
-    });
-  }
-
-  @Auth()
-  @Post('reminders/update')
-  @HttpCode(HttpStatus.OK)
-  async updateReminderFields(
-    @Body() updateFieldsDto: UpdateFieldsDto,
-    @Req() req: RequestWithJwtPayload,
-  ): Promise<void> {
-    const notes: OutputField[] = updateFieldsDto.fields;
-    this.aiAssistantsGateway.updateRemindersInUserModel(req.user.sub, notes);
-
-    this.broadcastMessage<OutputField[]>({
-      data: notes,
-      event: SyncEventBroadcastEnum.UPDATE_REMINDER_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: updateFieldsDto.socketId,
-    });
-  }
-
-  @Auth()
-  @Post('warnings/update')
-  @HttpCode(HttpStatus.OK)
-  async updateWarningFields(
-    @Body() updateFieldsDto: UpdateFieldsDto,
-    @Req() req: RequestWithJwtPayload,
-  ): Promise<void> {
-    const notes: OutputField[] = updateFieldsDto.fields;
-    this.aiAssistantsGateway.updateWarningsInUserModel(req.user.sub, notes);
-
-    this.broadcastMessage<OutputField[]>({
-      data: notes,
-      event: SyncEventBroadcastEnum.UPDATE_WARNING_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: updateFieldsDto.socketId,
-    });
-  }
-
-  @Auth()
-  @Post('fields/delete')
-  @HttpCode(HttpStatus.OK)
-  async deleteFields(
-    @Body() deleteFieldsDto: DeleteFieldsDto,
-    @Req() req: RequestWithJwtPayload,
-  ): Promise<void> {
-    const noteIds: number[] = deleteFieldsDto.fields.map((field) => field.id);
-    this.aiAssistantsGateway.deleteFieldsFromUserModel(req.user.sub, noteIds);
-
-    this.broadcastMessage<number[]>({
-      data: noteIds,
-      event: SyncEventBroadcastEnum.DELETE_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: deleteFieldsDto.socketId,
-    });
-  }
-
-  @Auth()
   @Post('images/add')
   @HttpCode(HttpStatus.OK)
   async addImages(
@@ -193,6 +121,77 @@ export class SyncController {
       event: SyncEventBroadcastEnum.DELETE_AUDIOS,
       roomId: req.user.sub,
       originSocketId: deleteAudiosDto.socketId,
+    });
+  }
+  @Auth()
+  @Post('notes/update')
+  @HttpCode(HttpStatus.OK)
+  async updateNoteFields(
+    @Body() updateFieldsDto: UpdateFieldsDto,
+    @Req() req: RequestWithJwtPayload,
+  ): Promise<void> {
+    const notes: OutputField[] = updateFieldsDto.fields;
+    this.aiAssistantsGateway.updateNotesInUserModel(req.user.sub, notes);
+
+    this.broadcastMessage<OutputField[]>({
+      data: notes,
+      event: SyncEventBroadcastEnum.UPDATE_NOTE_FIELDS,
+      roomId: req.user.sub,
+      originSocketId: updateFieldsDto.socketId,
+    });
+  }
+
+  @Auth()
+  @Post('reminders/update')
+  @HttpCode(HttpStatus.OK)
+  async updateReminderFields(
+    @Body() updateFieldsDto: UpdateFieldsDto,
+    @Req() req: RequestWithJwtPayload,
+  ): Promise<void> {
+    const notes: OutputField[] = updateFieldsDto.fields;
+    this.aiAssistantsGateway.updateRemindersInUserModel(req.user.sub, notes);
+
+    this.broadcastMessage<OutputField[]>({
+      data: notes,
+      event: SyncEventBroadcastEnum.UPDATE_REMINDER_FIELDS,
+      roomId: req.user.sub,
+      originSocketId: updateFieldsDto.socketId,
+    });
+  }
+
+  @Auth()
+  @Post('warnings/update')
+  @HttpCode(HttpStatus.OK)
+  async updateWarningFields(
+    @Body() updateFieldsDto: UpdateFieldsDto,
+    @Req() req: RequestWithJwtPayload,
+  ): Promise<void> {
+    const notes: OutputField[] = updateFieldsDto.fields;
+    this.aiAssistantsGateway.updateWarningsInUserModel(req.user.sub, notes);
+
+    this.broadcastMessage<OutputField[]>({
+      data: notes,
+      event: SyncEventBroadcastEnum.UPDATE_WARNING_FIELDS,
+      roomId: req.user.sub,
+      originSocketId: updateFieldsDto.socketId,
+    });
+  }
+
+  @Auth()
+  @Post('fields/delete')
+  @HttpCode(HttpStatus.OK)
+  async deleteFields(
+    @Body() deleteFieldsDto: DeleteFieldsDto,
+    @Req() req: RequestWithJwtPayload,
+  ): Promise<void> {
+    const noteIds: number[] = deleteFieldsDto.fields.map((field) => field.id);
+    this.aiAssistantsGateway.deleteFieldsFromUserModel(req.user.sub, noteIds);
+
+    this.broadcastMessage<number[]>({
+      data: noteIds,
+      event: SyncEventBroadcastEnum.DELETE_FIELDS,
+      roomId: req.user.sub,
+      originSocketId: deleteFieldsDto.socketId,
     });
   }
 

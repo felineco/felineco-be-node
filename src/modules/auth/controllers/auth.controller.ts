@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   Res,
@@ -24,7 +25,9 @@ import {
   fromUserWithPopulateToResponseDto,
   UserResponseDto,
 } from 'src/modules/users/dtos/responses/user-response.dto';
+import { User } from 'src/modules/users/schemas/user.schema';
 import { RefreshTokenDto } from '../dtos/refresh-token.dto';
+import { UpdateProfileDto } from '../dtos/update-profile.dto';
 import { FacebookAuthGuard } from '../guards/facebook-auth.guard';
 import { GoogleAuthGuard } from '../guards/google-auth.guard';
 import { LocalAuthGuard } from '../guards/local-auth.guard';
@@ -110,6 +113,20 @@ export class AuthController {
     @Req() req: RequestWithJwtPayload,
   ): Promise<UserResponseDto> {
     const user = await this.authService.getCurrentUser(req.user.sub);
+    return fromUserWithPopulateToResponseDto(user);
+  }
+
+  @Auth()
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  async updateProfile(
+    @Req() req: RequestWithJwtPayload,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
+    const updateData: Partial<User> & { password?: string } = {
+      language: updateProfileDto.language,
+    };
+    const user = await this.authService.updateProfile(req.user.sub, updateData);
     return fromUserWithPopulateToResponseDto(user);
   }
 

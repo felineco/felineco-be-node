@@ -17,6 +17,7 @@ export interface OutputField {
   value: string;
   guide: string;
   sample: string;
+  order: number;
 }
 
 export interface UserModel {

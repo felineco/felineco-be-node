@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import mongoose from 'mongoose';
+import { LanguageEnum } from 'src/common/enums/language.enum';
 import { Action, Privilege } from 'src/common/enums/permission.enum';
 import { Permission } from 'src/modules/permissions/schemas/permission.schema';
 import { RoleWWithPopulatePermission } from 'src/modules/roles/schemas/role.schema';
@@ -13,6 +14,7 @@ import {
 } from 'src/modules/users/schemas/user.schema';
 import { CryptoService } from '../../../common/services/crypto.service';
 import { UsersService } from '../../users/services/users.service';
+import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
@@ -47,6 +49,7 @@ describe('AuthService', () => {
     email: 'test@example.com',
     hashPassword: 'hashedpassword123',
     roles: [],
+    language: LanguageEnum.VI_VN,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -57,6 +60,16 @@ describe('AuthService', () => {
       {
         ...mockRole,
         permissions: [mockPermission],
+      },
+    ],
+  };
+
+  const mockJwtPayload: JwtPayload = {
+    sub: mockUserId.toString(),
+    permissions: [
+      {
+        privilege: Privilege.USER,
+        action: Action.READ,
       },
     ],
   };
@@ -77,6 +90,7 @@ describe('AuthService', () => {
           useValue: {
             findByEmail: jest.fn(),
             create: jest.fn(),
+            getUserJwtPayload: jest.fn(),
             getUserPermissions: jest.fn(),
             findOne: jest.fn(),
           },
@@ -168,13 +182,13 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should return tokens for valid user', async () => {
-      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      usersService.getUserJwtPayload.mockResolvedValue(mockJwtPayload);
       jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
       jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
 
       const result = await service.login(mockUserWithPermissions);
 
-      expect(usersService.getUserPermissions).toHaveBeenCalledWith(
+      expect(usersService.getUserJwtPayload).toHaveBeenCalledWith(
         mockUserId.toString(),
       );
       expect(jwtService.sign).toHaveBeenCalledTimes(2);
@@ -195,7 +209,7 @@ describe('AuthService', () => {
       };
 
       jwtService.verify.mockReturnValue(refreshTokenPayload);
-      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      usersService.getUserJwtPayload.mockResolvedValue(mockJwtPayload);
       jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
       jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
 
@@ -338,10 +352,16 @@ describe('AuthService', () => {
       };
       const randomPassword = 'random-password-123';
       const newUser = { ...mockUser, email: googleUserInfo.email };
+      const newUserWithPermissions: UserWithPopulateRoleAndPermission = {
+        ...mockUserWithPermissions,
+        email: googleUserInfo.email,
+        roles: [],
+      };
 
-      usersService.findByEmail.mockRejectedValue(
-        new BadRequestException('User not found'),
-      );
+      usersService.findByEmail
+        .mockRejectedValueOnce(new BadRequestException('User not found')) // First call - user doesn't exist
+        .mockResolvedValueOnce(newUserWithPermissions); // Second call - return created user
+
       cryptoService.randomPassword.mockResolvedValue(randomPassword);
       usersService.create.mockResolvedValue(newUser);
 
@@ -385,10 +405,16 @@ describe('AuthService', () => {
       };
       const randomPassword = 'random-password-123';
       const newUser = { ...mockUser, email: facebookUserInfo.email };
+      const newUserWithPermissions: UserWithPopulateRoleAndPermission = {
+        ...mockUserWithPermissions,
+        email: facebookUserInfo.email,
+        roles: [],
+      };
 
-      usersService.findByEmail.mockRejectedValue(
-        new BadRequestException('User not found'),
-      );
+      usersService.findByEmail
+        .mockRejectedValueOnce(new BadRequestException('User not found')) // First call - user doesn't exist
+        .mockResolvedValueOnce(newUserWithPermissions); // Second call - return created user
+
       cryptoService.randomPassword.mockResolvedValue(randomPassword);
       usersService.create.mockResolvedValue(newUser);
 
@@ -409,7 +435,7 @@ describe('AuthService', () => {
 
   describe('loginWithGoogle', () => {
     it('should generate tokens for Google user', async () => {
-      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      usersService.getUserJwtPayload.mockResolvedValue(mockJwtPayload);
       jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
       jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
 
@@ -424,7 +450,7 @@ describe('AuthService', () => {
 
   describe('loginWithFacebook', () => {
     it('should generate tokens for Facebook user', async () => {
-      usersService.getUserPermissions.mockResolvedValue([mockPermission]);
+      usersService.getUserJwtPayload.mockResolvedValue(mockJwtPayload);
       jwtService.sign.mockReturnValueOnce(mockTokens.accessToken);
       jwtService.sign.mockReturnValueOnce(mockTokens.refreshToken);
 

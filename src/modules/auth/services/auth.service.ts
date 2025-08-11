@@ -6,7 +6,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { CryptoService } from 'src/common/services/crypto.service';
-import { UserWithPopulateRoleAndPermission } from 'src/modules/users/schemas/user.schema';
+import {
+  User,
+  UserWithPopulateRoleAndPermission,
+} from 'src/modules/users/schemas/user.schema';
 import { UsersService } from '../../users/services/users.service';
 import { AuthTokenInterface } from '../interfaces/auth-token.interface';
 import {
@@ -114,6 +117,13 @@ export class AuthService {
     return this.usersService.findOne(userId);
   }
 
+  async updateProfile(
+    userId: string,
+    updateData: Partial<User> & { password?: string },
+  ): Promise<UserWithPopulateRoleAndPermission> {
+    return this.usersService.update(userId, updateData);
+  }
+
   // New method to validate Google users
   async validateOrCreateGoogleUser(
     userInfo: GoogleUserInfo,
@@ -179,7 +189,7 @@ export class AuthService {
 
   private async generateTokens(userId: string): Promise<AuthTokenInterface> {
     // Get permissions for the user
-    const permissions = await this.usersService.getUserPermissions(userId);
+    const jwtPayload = await this.usersService.getUserJwtPayload(userId);
 
     // Get token expiration settings
     const accessTokenExpiresIn = this.jwtExpiresIn;
@@ -193,15 +203,10 @@ export class AuthService {
     );
 
     // Prepare payload for access token
-    const payload: JwtPayload = {
-      sub: userId,
-      permissions,
-    };
-
     const secret = this.jwtSecret;
 
     // Generate access token
-    const accessToken = this.jwtService.sign(payload, {
+    const accessToken = this.jwtService.sign(jwtPayload, {
       secret,
       expiresIn: accessTokenExpiresIn,
     });

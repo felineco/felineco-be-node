@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Response } from 'express';
 import mongoose from 'mongoose';
+import { LanguageEnum } from 'src/common/enums/language.enum';
+import { User } from 'src/modules/users/schemas/user.schema';
 import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
@@ -18,11 +20,12 @@ describe('AuthController', () => {
 
   // Mock data
   const mockUserId = new mongoose.Types.ObjectId();
-  const mockUser = {
+  const mockUser: User = {
     _id: mockUserId,
     email: 'test@example.com',
     hashPassword: 'hashedpassword123',
     roles: [],
+    language: LanguageEnum.VI_VN,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -243,6 +246,7 @@ describe('AuthController', () => {
         _id: mockUserId.toString(),
         email: mockUser.email,
         roles: expect.any(Array),
+        language: mockUser.language,
         createdAt: mockUser.createdAt,
         updatedAt: mockUser.updatedAt,
       });

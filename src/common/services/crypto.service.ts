@@ -5,7 +5,8 @@ import { randomBytes } from 'crypto';
 
 @Injectable()
 export class CryptoService {
-  private readonly saltRounds = 10;
+  // 12 for safe production security
+  private readonly saltRounds = 12;
 
   async hashPassword(
     password: string,

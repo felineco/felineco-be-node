@@ -47,6 +47,14 @@ class OutputFieldDto {
   })
   @IsString()
   sample: string;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Order of the field',
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  order: number;
 }
 
 export class UpdateFieldsDto extends AiAssistantBaseRequestDto {
