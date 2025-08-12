@@ -100,7 +100,7 @@ jobs:
           CONTAINER_NAME: ${{ env.IMAGE_NAME }}-${{ env.TAG }}
           IMAGE_TAG: ${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{env.TAG}}
           ENV_FILE: ~/env/be.env
-          PORT: 8080
+          PORT: 1025
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << EOF
             # Ensure user is in docker group
