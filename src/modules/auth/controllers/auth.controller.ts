@@ -41,6 +41,7 @@ import { AuthService } from '../services/auth.service';
 export class AuthController {
   readonly isCookieSecure: boolean;
   readonly redirectUrlAfterLogin: string;
+  readonly cookieDomain: string;
 
   constructor(
     private authService: AuthService,
@@ -51,6 +52,8 @@ export class AuthController {
       'http://localhost:3000/auth/callback';
     this.isCookieSecure =
       this.configService.get<string>('app.environment') === 'production';
+    this.cookieDomain =
+      this.configService.get<string>('auth.cookieDomain') ?? 'localhost';
   }
 
   @UseGuards(LocalAuthGuard)
@@ -179,6 +182,7 @@ export class AuthController {
       secure: this.isCookieSecure,
       sameSite: 'strict',
       expires: new Date(tokens.accessTokenExpiresAt),
+      domain: this.cookieDomain,
     });
 
     // Set refresh token cookie
@@ -187,6 +191,7 @@ export class AuthController {
       secure: this.isCookieSecure,
       sameSite: 'strict',
       expires: new Date(tokens.refreshTokenExpiresAt),
+      domain: this.cookieDomain,
     });
   }
 
@@ -196,6 +201,7 @@ export class AuthController {
       httpOnly: true,
       secure: this.isCookieSecure,
       sameSite: 'strict',
+      domain: this.cookieDomain,
     });
 
     // Clear refresh token cookie
@@ -203,6 +209,7 @@ export class AuthController {
       httpOnly: true,
       secure: this.isCookieSecure,
       sameSite: 'strict',
+      domain: this.cookieDomain,
     });
   }
 }
