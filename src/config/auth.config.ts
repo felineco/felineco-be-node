@@ -6,8 +6,8 @@ export default registerAs('auth', () => ({
     secret: process.env.JWT_SECRET ?? 'your-secret-key',
     expiresIn: process.env.JWT_EXPIRES_IN ?? '1d',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
-    cookieDomain: process.env.COOKIE_DOMAIN ?? 'localhost',
   },
+  cookieDomain: process.env.COOKIE_DOMAIN ?? 'localhost',
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID ?? '',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
