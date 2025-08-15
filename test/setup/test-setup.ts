@@ -5,7 +5,7 @@ import { AppModule } from 'src/app.module';
 import { AppLoggerService } from 'src/common/services/logger.service';
 import { TestDatabase } from 'test/utils/database-setup';
 
-class TestINestApplication {
+export class TestINestApplication {
   private app: INestApplication;
   private moduleFixture: TestingModule;
   private testDatabase: TestDatabase;

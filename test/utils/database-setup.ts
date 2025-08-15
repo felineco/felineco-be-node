@@ -32,11 +32,14 @@ export class TestDatabase {
     }
   }
 
-  async clearTestDatabase(app: INestApplication): Promise<void> {
+  async clearTestDatabase(app: INestApplication | undefined): Promise<void> {
     try {
-      const connection = app.get<Connection>(getConnectionToken());
+      const connection = app?.get<Connection>(getConnectionToken());
 
-      if (connection.readyState !== ConnectionStates.disconnected) {
+      if (
+        connection !== undefined &&
+        connection.readyState !== ConnectionStates.disconnected
+      ) {
         const collections = connection.collections;
         const deletePromises = Object.values(collections).map((collection) =>
           collection.deleteMany({}),
