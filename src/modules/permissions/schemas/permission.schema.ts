@@ -1,7 +1,7 @@
 // src/modules/permissions/schemas/permission.schema.ts
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import mongoose, { HydratedDocument } from 'mongoose';
-import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { TABLE_NAME } from 'src/common/enums/table-name.enum';
 
 export type PermissionDocument = HydratedDocument<Permission>;
@@ -21,9 +21,9 @@ export class Permission {
 
   @Prop({
     required: true,
-    enum: Object.values(Action),
+    enum: Object.values(Operation),
   })
-  action: Action;
+  operation: Operation;
 
   createdAt: Date;
   updatedAt: Date;

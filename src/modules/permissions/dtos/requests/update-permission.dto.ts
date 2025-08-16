@@ -1,8 +1,7 @@
 // src/modules/permissions/dtos/requests/update-permission.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsOptional } from 'class-validator';
-import { Action } from 'src/common/enums/permission.enum';
-import { Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 
 export class UpdatePermissionDto {
   @ApiProperty({
@@ -16,12 +15,12 @@ export class UpdatePermissionDto {
   privilege?: Privilege;
 
   @ApiProperty({
-    enum: Action,
-    example: Action.CREATE,
+    enum: Operation,
+    example: Operation.CREATE,
     required: false,
     description: 'Action being performed on the object',
   })
-  @IsEnum(Action)
+  @IsEnum(Operation)
   @IsOptional()
-  action?: Action;
+  action?: Operation;
 }

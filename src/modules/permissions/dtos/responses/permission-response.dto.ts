@@ -1,6 +1,6 @@
 // src/modules/permissions/dtos/responses/permission-response.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { Permission } from '../../schemas/permission.schema';
 
 export class PermissionResponseDto {
@@ -15,11 +15,11 @@ export class PermissionResponseDto {
   object: Privilege;
 
   @ApiProperty({
-    enum: Action,
-    example: Action.CREATE,
+    enum: Operation,
+    example: Operation.CREATE,
     description: 'Action being performed on the object',
   })
-  action: Action;
+  action: Operation;
 
   @ApiProperty({ example: '2025-05-03T10:30:00Z' })
   createdAt: Date;
@@ -34,7 +34,7 @@ export function fromPermissionToResponseDto(
   const responseDto = new PermissionResponseDto();
   responseDto._id = permission._id.toString();
   responseDto.object = permission.privilege;
-  responseDto.action = permission.action;
+  responseDto.action = permission.operation;
   responseDto.createdAt = permission.createdAt;
   responseDto.updatedAt = permission.updatedAt;
   return responseDto;

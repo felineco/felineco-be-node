@@ -1,7 +1,7 @@
 // test/e2e/users.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { PermissionsService } from 'src/modules/permissions/services/permissions.service';
 import { RolesService } from 'src/modules/roles/services/roles.service';
 import { UsersService } from 'src/modules/users/services/users.service';
@@ -34,7 +34,7 @@ describe('Users (e2e)', () => {
     // Create test permissions
     const userPermission = await permissionsService.create({
       privilege: Privilege.USER,
-      action: Action.MANAGE,
+      operation: Operation.MANAGE,
     });
     userPermissionId = userPermission._id.toString();
 

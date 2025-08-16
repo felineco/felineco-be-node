@@ -2,7 +2,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { PagingQueryOptions } from '../../../common/dtos/page-query-options.dto';
 import {
   PagingResponse,
@@ -19,7 +19,7 @@ export class PermissionsService {
 
   async create(permissionData: {
     privilege: Privilege;
-    action: Action;
+    operation: Operation;
   }): Promise<Permission> {
     try {
       const permission = new this.permissionModel(permissionData);
@@ -27,7 +27,7 @@ export class PermissionsService {
     } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 11000) {
         throw new BadRequestException(
-          `Permission with privilege '${permissionData.privilege}' and action '${permissionData.action}' already exists`,
+          `Permission with privilege '${permissionData.privilege}' and action '${permissionData.operation}' already exists`,
         );
       }
       throw error;
@@ -85,7 +85,7 @@ export class PermissionsService {
     } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 11000) {
         throw new BadRequestException(
-          `Permission with privilege '${permissionData.privilege}' and action '${permissionData.action}' already exists`,
+          `Permission with privilege '${permissionData.privilege}' and action '${permissionData.operation}' already exists`,
         );
       }
       throw error;
@@ -98,5 +98,21 @@ export class PermissionsService {
     if (!result) {
       throw new BadRequestException(`Permission with ID '${id}' not found`);
     }
+  }
+
+  // For seeding use when first start
+  async createPermissionsIfNotExist(permissionData: {
+    privilege: Privilege;
+    operation: Operation;
+  }): Promise<string> {
+    const existing = await this.permissionModel.findOne(permissionData).exec();
+
+    if (existing) {
+      return existing._id.toString();
+    }
+
+    const permission = new this.permissionModel(permissionData);
+    const saved = await permission.save();
+    return saved._id.toString();
   }
 }

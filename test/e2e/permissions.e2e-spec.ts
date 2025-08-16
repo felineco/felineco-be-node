@@ -2,7 +2,7 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { testINestApp } from 'test/setup/test-setup';
-import { Action, Privilege } from '../../src/common/enums/permission.enum';
+import { Operation, Privilege } from '../../src/common/enums/permission.enum';
 
 describe('Permissions (e2e)', () => {
   let app: INestApplication;
@@ -24,7 +24,7 @@ describe('Permissions (e2e)', () => {
     it('should create a new permission', async () => {
       const permissionData = {
         privilege: Privilege.USER,
-        action: Action.CREATE,
+        operation: Operation.CREATE,
       };
 
       const response = await request(app.getHttpServer())
@@ -37,7 +37,7 @@ describe('Permissions (e2e)', () => {
         data: {
           _id: expect.any(String),
           object: Privilege.USER,
-          action: Action.CREATE,
+          operation: Operation.CREATE,
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
         },
@@ -47,7 +47,7 @@ describe('Permissions (e2e)', () => {
     it('should return 400 for duplicate permission', async () => {
       const permissionData = {
         privilege: Privilege.USER,
-        action: Action.CREATE,
+        operation: Operation.CREATE,
       };
 
       // Create first permission
@@ -66,7 +66,7 @@ describe('Permissions (e2e)', () => {
     it('should return 400 for invalid privilege', async () => {
       const invalidData = {
         privilege: 'INVALID_PRIVILEGE',
-        action: Action.CREATE,
+        operation: Operation.CREATE,
       };
 
       await request(app.getHttpServer())
@@ -81,11 +81,11 @@ describe('Permissions (e2e)', () => {
       // Create test permissions
       await request(app.getHttpServer())
         .post('/api/permissions')
-        .send({ privilege: Privilege.USER, action: Action.CREATE });
+        .send({ privilege: Privilege.USER, operation: Operation.CREATE });
 
       await request(app.getHttpServer())
         .post('/api/permissions')
-        .send({ privilege: Privilege.USER, action: Action.READ });
+        .send({ privilege: Privilege.USER, operation: Operation.READ });
 
       const response = await request(app.getHttpServer())
         .get('/api/permissions')
@@ -107,7 +107,11 @@ describe('Permissions (e2e)', () => {
 
     it('should support pagination', async () => {
       // Create test permissions
-      for (const action of [Action.CREATE, Action.READ, Action.UPDATE]) {
+      for (const action of [
+        Operation.CREATE,
+        Operation.READ,
+        Operation.UPDATE,
+      ]) {
         await request(app.getHttpServer())
           .post('/api/permissions')
           .send({ privilege: Privilege.USER, action });
@@ -126,7 +130,7 @@ describe('Permissions (e2e)', () => {
     it('should return a permission by id', async () => {
       const createResponse = await request(app.getHttpServer())
         .post('/api/permissions')
-        .send({ privilege: Privilege.USER, action: Action.CREATE });
+        .send({ privilege: Privilege.USER, operation: Operation.CREATE });
 
       const permissionId = createResponse.body.data._id;
 
@@ -137,7 +141,7 @@ describe('Permissions (e2e)', () => {
       expect(response.body.data).toMatchObject({
         _id: permissionId,
         object: Privilege.USER,
-        action: Action.CREATE,
+        operation: Operation.CREATE,
       });
     });
 
@@ -152,16 +156,16 @@ describe('Permissions (e2e)', () => {
     it('should update a permission', async () => {
       const createResponse = await request(app.getHttpServer())
         .post('/api/permissions')
-        .send({ privilege: Privilege.USER, action: Action.CREATE });
+        .send({ privilege: Privilege.USER, operation: Operation.CREATE });
 
       const permissionId = createResponse.body.data._id;
 
       const response = await request(app.getHttpServer())
         .patch(`/api/permissions/${permissionId}`)
-        .send({ action: Action.UPDATE })
+        .send({ operation: Operation.UPDATE })
         .expect(200);
 
-      expect(response.body.data.action).toBe(Action.UPDATE);
+      expect(response.body.data.action).toBe(Operation.UPDATE);
     });
   });
 
@@ -169,7 +173,7 @@ describe('Permissions (e2e)', () => {
     it('should delete a permission', async () => {
       const createResponse = await request(app.getHttpServer())
         .post('/api/permissions')
-        .send({ privilege: Privilege.USER, action: Action.CREATE });
+        .send({ privilege: Privilege.USER, operation: Operation.CREATE });
 
       const permissionId = createResponse.body.data._id;
 

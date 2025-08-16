@@ -5,7 +5,7 @@ import {
   ACCESS_CONTROL_KEY,
   AccessControl,
 } from 'src/common/decorators/authorization-policy.decorator.ts';
-import { Action } from 'src/common/enums/permission.enum';
+import { Operation } from 'src/common/enums/permission.enum';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 
 @Injectable()
@@ -39,16 +39,16 @@ export class AccessControlGuard implements CanActivate {
     // Process user permissions
     if (Array.isArray(user.permissions)) {
       user.permissions.forEach((perm: AccessControl) => {
-        if ('privilege' in perm && 'action' in perm) {
+        if ('privilege' in perm && 'operation' in perm) {
           const privilege = perm.privilege;
-          const action = perm.action;
+          const operation = perm.operation;
 
           // Add the specific permission
-          userPermissionSet.add(`${privilege}:${action}`);
+          userPermissionSet.add(`${privilege}:${operation}`);
 
           // If this is a 'manage' action, add all other actions for this privilege
-          if (action === Action.MANAGE) {
-            Object.values(Action).forEach((act) => {
+          if (operation === Operation.MANAGE) {
+            Object.values(Operation).forEach((act) => {
               userPermissionSet.add(`${privilege}:${act}`);
             });
           }
@@ -56,9 +56,11 @@ export class AccessControlGuard implements CanActivate {
       });
     }
 
-    return requiredPolicies.some((policy) => {
-      const permission = `${policy.privilege}:${policy.action}`;
+    const result = requiredPolicies.some((policy) => {
+      const permission = `${policy.privilege}:${policy.operation}`;
       return userPermissionSet.has(permission);
     });
+
+    return result;
   }
 }

@@ -2,6 +2,8 @@
 // src/modules/users/controllers/users.controller.ts
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { CreateUserDto } from '../dtos/requests/create-user.dto';
 import {
   UserResponseDto,
@@ -14,6 +16,7 @@ import { UsersService } from '../services/users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Auth({ privilege: Privilege.USER, operation: Operation.CREATE })
   @Post()
   async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
     const user = await this.usersService.create({

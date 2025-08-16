@@ -5,7 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import mongoose from 'mongoose';
 import { LanguageEnum } from 'src/common/enums/language.enum';
-import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { Permission } from 'src/modules/permissions/schemas/permission.schema';
 import { RoleWWithPopulatePermission } from 'src/modules/roles/schemas/role.schema';
 import {
@@ -31,7 +31,7 @@ describe('AuthService', () => {
   const mockPermission: Permission = {
     _id: mockPermissionId,
     privilege: Privilege.USER,
-    action: Action.READ,
+    operation: Operation.READ,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -69,7 +69,7 @@ describe('AuthService', () => {
     permissions: [
       {
         privilege: Privilege.USER,
-        action: Action.READ,
+        operation: Operation.READ,
       },
     ],
   };

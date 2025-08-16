@@ -14,10 +14,14 @@ import {
   WsHandlerReturnInterface,
   WsResponse,
 } from 'src/common/dtos/ws-response.dto';
+import { LanguageEnum } from 'src/common/enums/language.enum';
 import { AppLoggerService } from 'src/common/services/logger.service';
 import { AuthService } from 'src/modules/auth/services/auth.service';
+import { SessionsService } from 'src/modules/sessions/services/sessions.service';
+import { UsersService } from 'src/modules/users/services/users.service';
 import { WebSocketExceptionFilter } from '../../../common/filters/websocket-exception.filter';
 import { WebSocketResponseInterceptor } from '../../../common/interceptors/websocket-response.interceptor';
+import { sampleNoteFields } from '../constants/sample-template.constant';
 import { WsInitializeDto } from '../dtos/responses/ws-initialize.dto';
 import {
   AssistantWsEventRequestEnum,
@@ -32,74 +36,6 @@ import {
   UserModel,
 } from '../interfaces/models.interface';
 import { CustomSocket } from '../interfaces/socket.interface';
-
-// Sample data
-const sampleNoteFields: OutputField[] = [
-  {
-    id: 1,
-    label: 'Diagnosis',
-    value: '',
-    guide: "Provide a detailed description of the patient's condition.",
-    sample:
-      'Feline asthma, presenting with intermittent coughing and mild respiratory distress.',
-    order: 1,
-  },
-  {
-    id: 2,
-    label: 'Treatment Plan',
-    value: '',
-    guide: 'Outline the recommended treatment plan for the patient.',
-    sample:
-      'Initiate inhaled corticosteroids (Fluticasone 110mcg BID via AeroKat chamber). Consider adding bronchodilator if symptoms persist.',
-    order: 2,
-  },
-  {
-    id: 3,
-    label: 'Follow-up',
-    value: '',
-    guide: 'Describe the recommended follow-up schedule and monitoring.',
-    sample:
-      'Recheck in 2 weeks to assess response to therapy and adjust medications as needed.',
-    order: 3,
-  },
-  {
-    id: 4,
-    label: 'Owner Instructions',
-    value: '',
-    guide:
-      'List instructions for the owner regarding home care and monitoring.',
-    sample:
-      'Monitor for coughing, wheezing, or increased respiratory effort. Ensure proper inhaler technique.',
-    order: 4,
-  },
-  {
-    id: 5,
-    label: 'Medications',
-    value: '',
-    guide: 'List all prescribed medications and their dosages.',
-    sample:
-      'Fluticasone 110mcg BID via inhaler. Albuterol as rescue inhaler if acute symptoms develop.',
-    order: 5,
-  },
-  {
-    id: 6,
-    label: 'Dietary Recommendations',
-    value: '',
-    guide: 'Provide dietary advice or restrictions if applicable.',
-    sample:
-      'Continue current diet. Consider hypoallergenic diet if symptoms do not improve.',
-    order: 6,
-  },
-  {
-    id: 7,
-    label: 'Environmental Modifications',
-    value: '',
-    guide: 'Suggest any environmental changes to help the patient.',
-    sample:
-      'Minimize exposure to dust, smoke, and aerosols. Use air purifiers if possible.',
-    order: 7,
-  },
-];
 
 @UseFilters(WebSocketExceptionFilter)
 @UseInterceptors(WebSocketResponseInterceptor)
@@ -119,6 +55,8 @@ export class AiAssistantsGateway
 
   constructor(
     private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+    private readonly sessionsService: SessionsService,
     private readonly logger: AppLoggerService,
   ) {
     this.logger.setContext(AiAssistantsGateway.name);
@@ -171,12 +109,38 @@ export class AiAssistantsGateway
 
         if (room.size === 0) {
           // Room is empty, create a new user model for that user
+          // Get user details and session template from database
+          const user = await this.usersService.findOne(payload.sub);
+          const userLanguage = user.language ?? LanguageEnum.EN_US;
+          // Get session templates for the user's language
+          const templates = await this.sessionsService.findAllTemplates([
+            userLanguage,
+          ]);
+          const template = templates.length > 0 ? templates[0] : null;
+          // Create note fields from template or use empty map
+          const noteFieldsMap = new Map<number, OutputField>();
+          if (template !== null) {
+            template.fields.forEach((field) => {
+              noteFieldsMap.set(field.id as number, {
+                id: field.id as number,
+                label: field.label,
+                value: field.value,
+                guide: field.guide,
+                sample: field.sample,
+                order: field.order,
+              });
+            });
+          } else {
+            // If no template is found, use the sample note fields
+            sampleNoteFields.forEach((field) => {
+              noteFieldsMap.set(field.id, { ...field });
+            });
+          }
+
           const userModel: UserModel = {
             images: new Map(),
             audios: new Map(),
-            noteFields: new Map(
-              sampleNoteFields.map((field) => [field.id, { ...field }]),
-            ),
+            noteFields: noteFieldsMap,
             reminderFields: new Map(),
             warningFields: new Map(),
           };

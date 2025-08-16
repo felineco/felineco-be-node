@@ -3,7 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import mongoose, { Model } from 'mongoose';
 import { AccessControl } from 'src/common/decorators/authorization-policy.decorator.ts';
-import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { CryptoService } from 'src/common/services/crypto.service';
 import { JwtPayload } from 'src/modules/auth/interfaces/jwt-payload.interface';
 import {
@@ -299,7 +299,7 @@ export class UsersService {
       if (role.permissions.length > 0) {
         role.permissions.forEach((permission) => {
           // Create a unique identifier for this permission
-          const permKey = `${permission.privilege}:${permission.action}`;
+          const permKey = `${permission.privilege}:${permission.operation}`;
           uniquePermissions.add(permKey);
         });
       }
@@ -307,11 +307,12 @@ export class UsersService {
 
     const permissions: AccessControl[] = Array.from(uniquePermissions).map(
       (permString) => {
-        const [privilege, action] = permString.split(':');
-        return {
+        const [privilege, operation] = permString.split(':');
+        const accessControl: AccessControl = {
           privilege: privilege as Privilege,
-          action: action as Action,
+          operation: operation as Operation,
         };
+        return accessControl;
       },
     );
 

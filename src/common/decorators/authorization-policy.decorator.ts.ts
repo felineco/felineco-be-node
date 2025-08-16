@@ -1,10 +1,10 @@
 // src/common/decorators/authorization-policy.decorator.ts
 import { SetMetadata } from '@nestjs/common';
-import { Privilege, Action } from '../enums/permission.enum';
+import { Operation, Privilege } from '../enums/permission.enum';
 
 export interface AccessControl {
   privilege: Privilege;
-  action: Action;
+  operation: Operation;
 }
 
 export const ACCESS_CONTROL_KEY = 'access_control';

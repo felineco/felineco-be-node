@@ -245,4 +245,44 @@ export class RolesService {
 
     return updatedRole;
   }
+
+  // For seeding use when first start
+  async createRoleIfNotExist({
+    roleName,
+    permissionIds,
+  }: {
+    roleName: string;
+    permissionIds?: string[];
+  }): Promise<string> {
+    const existing = await this.roleModel.findOne({ roleName }).exec();
+
+    if (existing) {
+      return existing._id.toString();
+    }
+
+    // Validate permission IDs if provided
+    if (permissionIds && permissionIds.length > 0) {
+      const permissions = await this.permissionModel
+        .find({ _id: { $in: permissionIds } })
+        .exec();
+
+      if (permissions.length !== permissionIds.length) {
+        const foundIds = permissions.map((p) => p._id.toString());
+        const notFoundIds = permissionIds.filter(
+          (id) => !foundIds.includes(id),
+        );
+        throw new BadRequestException(
+          `Some permission IDs were not found: ${notFoundIds.join(', ')}`,
+        );
+      }
+    }
+
+    const role = new this.roleModel({
+      roleName,
+      permissions: permissionIds ?? [],
+    });
+
+    const savedRole = await role.save();
+    return savedRole._id.toString();
+  }
 }

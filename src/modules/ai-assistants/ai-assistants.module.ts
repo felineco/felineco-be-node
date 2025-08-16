@@ -2,13 +2,14 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { GrpcModule } from '../grpc-clients/grpc.module';
+import { SessionsModule } from '../sessions/sessions.module';
 import { UsersModule } from '../users/users.module';
 import { AiAssistantsController } from './controllers/ai-assistants.controller';
 import { SyncController } from './controllers/sync.controller';
 import { AiAssistantsGateway } from './gateways/ai-assistants.gateway';
 
 @Module({
-  imports: [AuthModule, GrpcModule, UsersModule],
+  imports: [AuthModule, GrpcModule, UsersModule, SessionsModule],
   controllers: [SyncController, AiAssistantsController],
   providers: [AiAssistantsGateway],
   exports: [AiAssistantsGateway],

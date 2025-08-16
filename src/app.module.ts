@@ -26,6 +26,8 @@ import { HealthModule } from './modules/health/health.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { S3Module } from './modules/s3/s3.module';
+import { SeedingModule } from './modules/seeding/seeding.module';
+import { SessionsModule } from './modules/sessions/sessions.module';
 import { TestModule } from './modules/test/test.module';
 
 @Module({
@@ -53,18 +55,20 @@ import { TestModule } from './modules/test/test.module';
       inject: [ConfigService],
     }),
 
-    // Common Services Module
+    // Basic Services Module
     CommonServicesModule,
+    SeedingModule,
+    HealthModule,
     // Test Module for dev to play around
     TestModule,
     // WebSocketGateway
     AiAssistantsModule,
     // Feature modules
-    HealthModule,
     AuthModule,
     UsersModule,
     RolesModule,
     PermissionsModule,
+    SessionsModule,
     S3Module,
     GrpcModule,
   ],

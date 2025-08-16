@@ -5,7 +5,7 @@ import {
   ACCESS_TOKEN_COOKIE_NAME,
   REFRESH_TOKEN_COOKIE_NAME,
 } from 'src/common/constants/cookie-names.constant';
-import { Action, Privilege } from 'src/common/enums/permission.enum';
+import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { PermissionsService } from 'src/modules/permissions/services/permissions.service';
 import { RolesService } from 'src/modules/roles/services/roles.service';
 import * as request from 'supertest';
@@ -45,7 +45,7 @@ describe('Auth & Users (e2e)', () => {
     // Create test permissions and roles
     const userPermission = await permissionsService.create({
       privilege: Privilege.USER,
-      action: Action.READ,
+      operation: Operation.READ,
     });
     userPermissionId = userPermission._id.toString();
 
