@@ -1,14 +1,10 @@
 // src/modules/grpc-clients/services/health-service.service.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ClientGrpc,
-  ClientProxyFactory,
-  Transport,
-} from '@nestjs/microservices';
-import { join } from 'path';
+import { ClientGrpc } from '@nestjs/microservices';
 import { map, Observable } from 'rxjs';
 import { HealthService } from '../interfaces/health.interface';
+import { GrpcClientFactory } from './grpc-client-factory.service';
 import { GrpcMetadataService } from './grpc-metadata.service';
 
 @Injectable()
@@ -19,19 +15,15 @@ export class GRPCHealthService implements OnModuleInit {
   constructor(
     private configService: ConfigService,
     private grpcMetadataService: GrpcMetadataService,
+    private grpcClientFactory: GrpcClientFactory,
   ) {}
 
   onModuleInit() {
     // Create the client with config values
-    this.client = ClientProxyFactory.create({
-      transport: Transport.GRPC,
-      options: {
-        package: 'health',
-        protoPath: join(__dirname, '../proto/health/health.proto'),
-        url: this.configService.get<string>('grpc.url') ?? 'localhost:50051',
-      },
-    }) as ClientGrpc;
-
+    this.client = this.grpcClientFactory.createClient(
+      'health',
+      '../proto/health/health.proto',
+    );
     // Get the HealthService from the client
     this.healthService = this.client.getService<HealthService>('HealthService');
   }

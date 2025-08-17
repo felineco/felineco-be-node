@@ -1,12 +1,7 @@
 // src/modules/grpc-clients/services/transcription-service.service.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ClientGrpc,
-  ClientProxyFactory,
-  Transport,
-} from '@nestjs/microservices';
-import { join } from 'path';
+import { ClientGrpc } from '@nestjs/microservices';
 import { Observable } from 'rxjs';
 import {
   TranscribeAudioRequest,
@@ -14,6 +9,7 @@ import {
   TranscriptionService,
 } from '../interfaces/transcription.interface';
 
+import { GrpcClientFactory } from './grpc-client-factory.service';
 import { GrpcMetadataService } from './grpc-metadata.service';
 
 @Injectable()
@@ -24,21 +20,14 @@ export class GRPCTranscriptionService implements OnModuleInit {
   constructor(
     private configService: ConfigService,
     private grpcMetadataService: GrpcMetadataService,
+    private grpcClientFactory: GrpcClientFactory,
   ) {}
 
   onModuleInit() {
-    this.client = ClientProxyFactory.create({
-      transport: Transport.GRPC,
-      options: {
-        package: 'transcription',
-        protoPath: join(
-          __dirname,
-          '../proto/transcription/transcription.proto',
-        ),
-        url: this.configService.get<string>('grpc.url') ?? 'localhost:50051',
-      },
-    }) as ClientGrpc;
-
+    this.client = this.grpcClientFactory.createClient(
+      'transcription',
+      '../proto/transcription/transcription.proto',
+    );
     this.transcriptionService = this.client.getService<TranscriptionService>(
       'TranscriptionService',
     );

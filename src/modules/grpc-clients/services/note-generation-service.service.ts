@@ -1,12 +1,7 @@
 // src/modules/grpc-clients/services/note-generation-service.service.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ClientGrpc,
-  ClientProxyFactory,
-  Transport,
-} from '@nestjs/microservices';
-import { join } from 'path';
+import { ClientGrpc } from '@nestjs/microservices';
 import { Observable } from 'rxjs';
 import {
   ExtractOutputFieldsRequest,
@@ -15,6 +10,7 @@ import {
   GenerateNotesResponse,
   NoteGenerationService,
 } from '../interfaces/note-generation.interface';
+import { GrpcClientFactory } from './grpc-client-factory.service';
 import { GrpcMetadataService } from './grpc-metadata.service';
 
 @Injectable()
@@ -25,20 +21,14 @@ export class GRPCNoteGenerationService implements OnModuleInit {
   constructor(
     private configService: ConfigService,
     private grpcMetadataService: GrpcMetadataService,
+    private grpcClientFactory: GrpcClientFactory,
   ) {}
 
   onModuleInit() {
-    this.client = ClientProxyFactory.create({
-      transport: Transport.GRPC,
-      options: {
-        package: 'note_generation',
-        protoPath: join(
-          __dirname,
-          '../proto/note_generation/note_generation.proto',
-        ),
-        url: this.configService.get<string>('grpc.url') ?? 'localhost:50051',
-      },
-    }) as ClientGrpc;
+    this.client = this.grpcClientFactory.createClient(
+      'note_generation',
+      '../proto/note_generation/note_generation.proto',
+    );
 
     this.noteGenerationService = this.client.getService<NoteGenerationService>(
       'NoteGenerationService',
