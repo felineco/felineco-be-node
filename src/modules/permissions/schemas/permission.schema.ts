@@ -32,4 +32,4 @@ export class Permission {
 export const PermissionSchema = SchemaFactory.createForClass(Permission);
 
 // Create a compound unique index to prevent duplicate privilege+action combinations
-PermissionSchema.index({ privilege: 1, action: 1 }, { unique: true });
+PermissionSchema.index({ privilege: 1, operation: 1 }, { unique: true });

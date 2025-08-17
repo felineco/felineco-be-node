@@ -33,7 +33,7 @@ export class PermissionsController {
   ): Promise<PermissionResponseDto> {
     const permission = await this.permissionsService.create({
       privilege: createPermissionDto.privilege,
-      operation: createPermissionDto.action,
+      operation: createPermissionDto.operation,
     });
     return fromPermissionToResponseDto(permission);
   }

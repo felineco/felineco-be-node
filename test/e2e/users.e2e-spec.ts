@@ -1,69 +1,49 @@
 // test/e2e/users.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
-import { Operation, Privilege } from 'src/common/enums/permission.enum';
-import { PermissionsService } from 'src/modules/permissions/services/permissions.service';
+import { ACCESS_TOKEN_COOKIE_NAME } from 'src/common/constants/cookie-names.constant';
 import { RolesService } from 'src/modules/roles/services/roles.service';
-import { UsersService } from 'src/modules/users/services/users.service';
+import { SeedingService } from 'src/modules/seeding/seeding.service';
 import * as request from 'supertest';
-import { testINestApp } from 'test/setup/test-setup';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  testINestApp,
+} from 'test/setup/test-setup';
 
 describe('Users (e2e)', () => {
   let app: INestApplication;
   let moduleFixture: TestingModule;
-  let permissionsService: PermissionsService;
   let rolesService: RolesService;
-  let usersService: UsersService;
 
-  // Test data
-  let userPermissionId: string;
-  let adminRoleId: string;
   let userRoleId: string;
-  // let adminAccessToken: string;
+  let adminAccessToken: string;
 
   beforeAll(async () => {
     app = testINestApp.getApp();
     moduleFixture = testINestApp.getModuleFixture();
-    permissionsService =
-      moduleFixture.get<PermissionsService>(PermissionsService);
     rolesService = moduleFixture.get<RolesService>(RolesService);
-    usersService = moduleFixture.get<UsersService>(UsersService);
   });
 
   beforeEach(async () => {
-    // Create test permissions
-    const userPermission = await permissionsService.create({
-      privilege: Privilege.USER,
-      operation: Operation.MANAGE,
-    });
-    userPermissionId = userPermission._id.toString();
-
-    // Create test roles
-    const adminRole = await rolesService.create({
-      roleName: 'Admin',
-      permissionIds: [userPermissionId],
-    });
-    adminRoleId = adminRole._id.toString();
+    // Seeding the db
+    const seedingService = moduleFixture.get<SeedingService>(SeedingService);
+    await seedingService.onApplicationBootstrap();
 
     const userRole = await rolesService.create({
       roleName: 'User',
     });
     userRoleId = userRole._id.toString();
 
-    // Create admin user and get access token for protected routes
-    await usersService.create({
-      email: 'admin@example.com',
-      password: 'password123',
-      roleIds: [adminRoleId],
-    });
-
-    await request(app.getHttpServer())
+    const loginResponse = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({
-        email: 'admin@example.com',
-        password: 'password123',
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
       })
       .expect(200);
+
+    adminAccessToken = loginResponse.body.data.accessToken;
 
     // const loginResponse = await request(app.getHttpServer())
     //   .post('/api/auth/login')
@@ -94,6 +74,7 @@ describe('Users (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userData)
         .expect(201);
 
@@ -122,6 +103,7 @@ describe('Users (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userData)
         .expect(201);
 
@@ -136,6 +118,7 @@ describe('Users (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userData)
         .expect(400);
     });
@@ -148,6 +131,7 @@ describe('Users (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userData)
         .expect(400);
     });
@@ -161,12 +145,14 @@ describe('Users (e2e)', () => {
       // Create first user
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userData)
         .expect(201);
 
       // Try to create duplicate
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userData)
         .expect(400);
     });
@@ -180,6 +166,7 @@ describe('Users (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userData)
         .expect(400);
     });

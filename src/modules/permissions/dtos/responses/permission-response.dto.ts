@@ -19,7 +19,7 @@ export class PermissionResponseDto {
     example: Operation.CREATE,
     description: 'Action being performed on the object',
   })
-  action: Operation;
+  operation: Operation;
 
   @ApiProperty({ example: '2025-05-03T10:30:00Z' })
   createdAt: Date;
@@ -34,7 +34,7 @@ export function fromPermissionToResponseDto(
   const responseDto = new PermissionResponseDto();
   responseDto._id = permission._id.toString();
   responseDto.object = permission.privilege;
-  responseDto.action = permission.operation;
+  responseDto.operation = permission.operation;
   responseDto.createdAt = permission.createdAt;
   responseDto.updatedAt = permission.updatedAt;
   return responseDto;

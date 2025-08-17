@@ -15,7 +15,7 @@ describe('Roles (e2e)', () => {
 
   // Test data
   let userPermissionId: string;
-  let managePermissionId: string;
+  let createPermissionId: string;
 
   beforeAll(async () => {
     app = testINestApp.getApp();
@@ -35,9 +35,9 @@ describe('Roles (e2e)', () => {
 
     const managePermission = await permissionsService.create({
       privilege: Privilege.USER,
-      operation: Operation.MANAGE,
+      operation: Operation.CREATE,
     });
-    managePermissionId = managePermission._id.toString();
+    createPermissionId = managePermission._id.toString();
   });
 
   afterEach(async () => {
@@ -51,7 +51,7 @@ describe('Roles (e2e)', () => {
   describe('/api/roles (POST)', () => {
     it('should create a new role successfully', async () => {
       const roleData = {
-        roleName: 'Admin',
+        roleName: 'Test User',
         permissionIds: [userPermissionId],
       };
 
@@ -65,7 +65,7 @@ describe('Roles (e2e)', () => {
         timestamp: expect.any(String),
         data: {
           _id: expect.any(String),
-          name: 'Admin',
+          name: 'Test User',
           permissions: [userPermissionId],
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
@@ -129,7 +129,7 @@ describe('Roles (e2e)', () => {
       // Create test roles
       await rolesService.create({
         roleName: 'Admin',
-        permissionIds: [userPermissionId, managePermissionId],
+        permissionIds: [userPermissionId, createPermissionId],
       });
       await rolesService.create({
         roleName: 'User',
@@ -160,7 +160,7 @@ describe('Roles (e2e)', () => {
           expect.objectContaining({
             _id: expect.any(String),
             object: Privilege.USER,
-            action: expect.any(String),
+            operation: expect.any(String),
           }),
         ]),
       );
@@ -223,7 +223,7 @@ describe('Roles (e2e)', () => {
 
       const updateData = {
         roleName: 'Super Admin',
-        permissionIds: [managePermissionId],
+        permissionIds: [createPermissionId],
       };
 
       const response = await request(app.getHttpServer())
@@ -233,7 +233,7 @@ describe('Roles (e2e)', () => {
 
       expect(response.body.data.name).toBe('Super Admin');
       expect(response.body.data.permissions).toHaveLength(1);
-      expect(response.body.data.permissions[0]._id).toBe(managePermissionId);
+      expect(response.body.data.permissions[0]._id).toBe(createPermissionId);
     });
 
     it('should return 400 for duplicate role name', async () => {
@@ -271,7 +271,7 @@ describe('Roles (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post(`/api/roles/${role._id.toString()}/permissions`)
-        .send({ permissionIds: [managePermissionId] })
+        .send({ permissionIds: [createPermissionId] })
         .expect(201);
 
       expect(response.body.data.permissions).toHaveLength(2);
@@ -296,12 +296,12 @@ describe('Roles (e2e)', () => {
     it('should remove permissions from a role', async () => {
       const role = await rolesService.create({
         roleName: 'Admin',
-        permissionIds: [userPermissionId, managePermissionId],
+        permissionIds: [userPermissionId, createPermissionId],
       });
 
       const response = await request(app.getHttpServer())
         .delete(`/api/roles/${role._id.toString()}/permissions`)
-        .send({ permissionIds: [managePermissionId] })
+        .send({ permissionIds: [createPermissionId] })
         .expect(200);
 
       expect(response.body.data.permissions).toHaveLength(1);

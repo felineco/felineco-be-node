@@ -8,8 +8,13 @@ import {
 import { Operation, Privilege } from 'src/common/enums/permission.enum';
 import { PermissionsService } from 'src/modules/permissions/services/permissions.service';
 import { RolesService } from 'src/modules/roles/services/roles.service';
+import { SeedingService } from 'src/modules/seeding/seeding.service';
 import * as request from 'supertest';
-import { testINestApp } from 'test/setup/test-setup';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  testINestApp,
+} from 'test/setup/test-setup';
 import { normalizeCookies } from 'test/utils/test-helpers';
 
 describe('Auth & Users (e2e)', () => {
@@ -20,12 +25,12 @@ describe('Auth & Users (e2e)', () => {
 
   // Test data
   let userPermissionId: string;
-  let adminRoleId: string;
+  let userRoleId: string;
   let regularUserData: {
     email: string;
     password: string;
   };
-  let adminUserData: {
+  let userWithRoleData: {
     email: string;
     password: string;
     roleIds: string[];
@@ -42,6 +47,9 @@ describe('Auth & Users (e2e)', () => {
   });
 
   beforeEach(async () => {
+    // Re-create the admin user after database clear
+    const seedingService = moduleFixture.get<SeedingService>(SeedingService);
+    await seedingService.onApplicationBootstrap();
     // Create test permissions and roles
     const userPermission = await permissionsService.create({
       privilege: Privilege.USER,
@@ -50,10 +58,10 @@ describe('Auth & Users (e2e)', () => {
     userPermissionId = userPermission._id.toString();
 
     const adminRole = await rolesService.create({
-      roleName: 'Admin',
+      roleName: 'Read User Role',
       permissionIds: [userPermissionId],
     });
-    adminRoleId = adminRole._id.toString();
+    userRoleId = adminRole._id.toString();
 
     // Test user data
     regularUserData = {
@@ -61,10 +69,10 @@ describe('Auth & Users (e2e)', () => {
       password: 'password123',
     };
 
-    adminUserData = {
-      email: 'admin@example.com',
+    userWithRoleData = {
+      email: 'user@example.com',
       password: 'password123',
-      roleIds: [adminRoleId],
+      roleIds: [userRoleId],
     };
   });
 
@@ -78,9 +86,25 @@ describe('Auth & Users (e2e)', () => {
   });
 
   describe('/api/users (POST)', () => {
+    let adminAccessToken: string;
+
+    // Login as admin
+    beforeEach(async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD,
+        })
+        .expect(200);
+
+      adminAccessToken = loginResponse.body.data.accessToken;
+    });
+
     it('should create a new user successfully', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(regularUserData)
         .expect(201);
 
@@ -104,10 +128,11 @@ describe('Auth & Users (e2e)', () => {
     it('should create a user with roles', async () => {
       const response = await request(app.getHttpServer())
         .post('/api/users')
-        .send(adminUserData)
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
+        .send(userWithRoleData)
         .expect(201);
 
-      expect(response.body?.data?.roles).toEqual([adminRoleId]);
+      expect(response.body?.data?.roles).toEqual([userRoleId]);
     });
 
     it('should return 400 for invalid email', async () => {
@@ -118,6 +143,7 @@ describe('Auth & Users (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(invalidUserData)
         .expect(400);
     });
@@ -130,6 +156,7 @@ describe('Auth & Users (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(invalidUserData)
         .expect(400);
     });
@@ -138,12 +165,14 @@ describe('Auth & Users (e2e)', () => {
       // Create first user
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(regularUserData)
         .expect(201);
 
       // Try to create second user with same email
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(regularUserData)
         .expect(400);
     });
@@ -157,24 +186,38 @@ describe('Auth & Users (e2e)', () => {
 
       await request(app.getHttpServer())
         .post('/api/users')
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
         .send(userWithInvalidRole)
         .expect(400);
     });
   });
 
   describe('/api/auth/login (POST)', () => {
+    let adminAccessToken: string;
+
     beforeEach(async () => {
+      const loginResponse = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD,
+        })
+        .expect(200);
+
+      adminAccessToken = loginResponse.body.data.accessToken;
+
       // Create a user for login tests
       await request(app.getHttpServer())
         .post('/api/users')
-        .send(adminUserData)
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
+        .send(userWithRoleData)
         .expect(201);
     });
 
     it('should login successfully with valid credentials', async () => {
       const loginData = {
-        email: adminUserData.email,
-        password: adminUserData.password,
+        email: userWithRoleData.email,
+        password: userWithRoleData.password,
       };
 
       const response = await request(app.getHttpServer())
@@ -212,7 +255,7 @@ describe('Auth & Users (e2e)', () => {
     it('should return 401 for invalid email', async () => {
       const loginData = {
         email: 'nonexistent@example.com',
-        password: adminUserData.password,
+        password: userWithRoleData.password,
       };
 
       await request(app.getHttpServer())
@@ -223,7 +266,7 @@ describe('Auth & Users (e2e)', () => {
 
     it('should return 401 for invalid password', async () => {
       const loginData = {
-        email: adminUserData.email,
+        email: userWithRoleData.email,
         password: 'wrongpassword',
       };
 
@@ -254,20 +297,32 @@ describe('Auth & Users (e2e)', () => {
   });
 
   describe('/api/auth/refresh (POST)', () => {
+    let adminAccessToken: string;
     let refreshToken: string;
 
     beforeEach(async () => {
+      const adminLoginResponse = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD,
+        })
+        .expect(200);
+
+      adminAccessToken = adminLoginResponse.body.data.accessToken;
+
       // Create user and login to get refresh token
       await request(app.getHttpServer())
         .post('/api/users')
-        .send(adminUserData)
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
+        .send(userWithRoleData)
         .expect(201);
 
       const loginResponse = await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({
-          email: adminUserData.email,
-          password: adminUserData.password,
+          email: userWithRoleData.email,
+          password: userWithRoleData.password,
         })
         .expect(200);
 
@@ -329,10 +384,21 @@ describe('Auth & Users (e2e)', () => {
     let userId: string;
 
     beforeEach(async () => {
+      const adminLoginResponse = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD,
+        })
+        .expect(200);
+
+      const adminAccessToken = adminLoginResponse.body.data.accessToken;
+
       // Create user and login to get access token
       const createResponse = await request(app.getHttpServer())
         .post('/api/users')
-        .send(adminUserData)
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
+        .send(userWithRoleData)
         .expect(201);
 
       userId = createResponse.body?.data?._id;
@@ -340,8 +406,8 @@ describe('Auth & Users (e2e)', () => {
       const loginResponse = await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({
-          email: adminUserData.email,
-          password: adminUserData.password,
+          email: userWithRoleData.email,
+          password: userWithRoleData.password,
         })
         .expect(200);
 
@@ -359,7 +425,7 @@ describe('Auth & Users (e2e)', () => {
         timestamp: expect.any(String),
         data: {
           _id: userId,
-          email: adminUserData.email,
+          email: userWithRoleData.email,
           roles: expect.any(Array),
           createdAt: expect.any(String),
           updatedAt: expect.any(String),
@@ -369,8 +435,8 @@ describe('Auth & Users (e2e)', () => {
       // Verify roles are populated
       expect(response.body.data.roles).toHaveLength(1);
       expect(response.body.data.roles[0]).toMatchObject({
-        _id: adminRoleId,
-        name: 'Admin',
+        _id: userRoleId,
+        name: 'Read User Role',
         permissions: expect.any(Array),
       });
 
@@ -393,18 +459,28 @@ describe('Auth & Users (e2e)', () => {
 
   describe('Integration: User creation -> Login -> Access protected resource', () => {
     it('should create user, login, and access protected endpoint', async () => {
+      const adminLoginResponse = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD,
+        })
+        .expect(200);
+
+      const adminAccessToken = adminLoginResponse.body.data.accessToken;
       // 1. Create user
       await request(app.getHttpServer())
         .post('/api/users')
-        .send(adminUserData)
+        .set('Cookie', [`${ACCESS_TOKEN_COOKIE_NAME}=${adminAccessToken}`])
+        .send(userWithRoleData)
         .expect(201);
 
       // 2. Login
       const loginResponse = await request(app.getHttpServer())
         .post('/api/auth/login')
         .send({
-          email: adminUserData.email,
-          password: adminUserData.password,
+          email: userWithRoleData.email,
+          password: userWithRoleData.password,
         })
         .expect(200);
 

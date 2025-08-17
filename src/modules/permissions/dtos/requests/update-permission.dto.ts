@@ -22,5 +22,5 @@ export class UpdatePermissionDto {
   })
   @IsEnum(Operation)
   @IsOptional()
-  action?: Operation;
+  operation?: Operation;
 }

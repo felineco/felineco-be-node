@@ -5,6 +5,9 @@ import { AppModule } from 'src/app.module';
 import { AppLoggerService } from 'src/common/services/logger.service';
 import { TestDatabase } from 'test/utils/database-setup';
 
+export const ADMIN_EMAIL = 'test-admin@example.com';
+export const ADMIN_PASSWORD = 'test-admin-password';
+
 export class TestINestApplication {
   private app: INestApplication;
   private moduleFixture: TestingModule;
@@ -16,6 +19,10 @@ export class TestINestApplication {
 
   async initialize(): Promise<void> {
     console.log('Initializing test application...');
+    // Set up env variable for test
+    process.env.ADMIN_EMAIL = ADMIN_EMAIL;
+    process.env.ADMIN_PASSWORD = ADMIN_PASSWORD;
+
     await this.testDatabase.setupTestDatabase();
 
     this.moduleFixture = await Test.createTestingModule({

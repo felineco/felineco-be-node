@@ -354,7 +354,7 @@ describe('UsersController', () => {
 //       const userId = mockUserId.toString();
 //       const mockPermission = {
 //         privilege: 'user',
-//         action: 'read',
+//         operation: 'read',
 //       };
 
 //       const userWithPermissions = {

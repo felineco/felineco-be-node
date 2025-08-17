@@ -20,5 +20,5 @@ export class CreatePermissionDto {
   })
   @IsEnum(Operation)
   @IsNotEmpty()
-  action: Operation;
+  operation: Operation;
 }

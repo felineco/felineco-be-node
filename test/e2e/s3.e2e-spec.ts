@@ -2,62 +2,35 @@
 import { INestApplication } from '@nestjs/common';
 import { TestingModule } from '@nestjs/testing';
 import { ACCESS_TOKEN_COOKIE_NAME } from 'src/common/constants/cookie-names.constant';
-import { Operation, Privilege } from 'src/common/enums/permission.enum';
-import { PermissionsService } from 'src/modules/permissions/services/permissions.service';
-import { RolesService } from 'src/modules/roles/services/roles.service';
 import { FileType } from 'src/modules/s3/enum/file-type.enum';
-import { UsersService } from 'src/modules/users/services/users.service';
+import { SeedingService } from 'src/modules/seeding/seeding.service';
 import * as request from 'supertest';
-import { testINestApp } from 'test/setup/test-setup';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  testINestApp,
+} from 'test/setup/test-setup';
 
 describe('S3 (e2e)', () => {
   let app: INestApplication;
   let moduleFixture: TestingModule;
-  let permissionsService: PermissionsService;
-  let rolesService: RolesService;
-  let usersService: UsersService;
-
-  // Test data
-  let userPermissionId: string;
-  let adminRoleId: string;
   let adminAccessToken: string;
 
   beforeAll(async () => {
     app = testINestApp.getApp();
     moduleFixture = testINestApp.getModuleFixture();
-    permissionsService =
-      moduleFixture.get<PermissionsService>(PermissionsService);
-    rolesService = moduleFixture.get<RolesService>(RolesService);
-    usersService = moduleFixture.get<UsersService>(UsersService);
   });
 
   beforeEach(async () => {
-    // Create test permissions
-    const userPermission = await permissionsService.create({
-      privilege: Privilege.USER,
-      operation: Operation.MANAGE,
-    });
-    userPermissionId = userPermission._id.toString();
-
-    // Create test role
-    const adminRole = await rolesService.create({
-      roleName: 'Admin',
-      permissionIds: [userPermissionId],
-    });
-    adminRoleId = adminRole._id.toString();
-
-    // Create admin user and get access token
-    await usersService.create({
-      email: 'admin@example.com',
-      password: 'password123',
-      roleIds: [adminRoleId],
-    });
+    // seeding the db
+    const seedingService = moduleFixture.get<SeedingService>(SeedingService);
+    await seedingService.onApplicationBootstrap();
 
     const loginResponse = await request(app.getHttpServer())
       .post('/api/auth/login')
       .send({
-        email: 'admin@example.com',
-        password: 'password123',
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
       })
       .expect(200);
 

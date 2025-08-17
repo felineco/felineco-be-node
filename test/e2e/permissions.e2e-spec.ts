@@ -107,14 +107,14 @@ describe('Permissions (e2e)', () => {
 
     it('should support pagination', async () => {
       // Create test permissions
-      for (const action of [
+      for (const operation of [
         Operation.CREATE,
         Operation.READ,
         Operation.UPDATE,
       ]) {
         await request(app.getHttpServer())
           .post('/api/permissions')
-          .send({ privilege: Privilege.USER, action });
+          .send({ privilege: Privilege.USER, operation });
       }
 
       const response = await request(app.getHttpServer())
@@ -165,7 +165,7 @@ describe('Permissions (e2e)', () => {
         .send({ operation: Operation.UPDATE })
         .expect(200);
 
-      expect(response.body.data.action).toBe(Operation.UPDATE);
+      expect(response.body.data.operation).toBe(Operation.UPDATE);
     });
   });
 
