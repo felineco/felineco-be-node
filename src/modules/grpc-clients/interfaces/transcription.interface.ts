@@ -3,7 +3,7 @@ import { Metadata } from '@grpc/grpc-js';
 import { Observable } from 'rxjs';
 
 export interface TranscribeAudioRequest {
-  audio_urls: string[];
+  audioUrls: string[];
   instruction: string;
   language: string;
 }

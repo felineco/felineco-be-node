@@ -62,7 +62,7 @@ export class AiAssistantsController {
     );
     firstValueFrom(
       this.grpcTranscriptionService.transcribeAudio({
-        audio_urls: audioUrls,
+        audioUrls: audioUrls,
         instruction: 'Transcribe the audio content',
         language,
       }),
