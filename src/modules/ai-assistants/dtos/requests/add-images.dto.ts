@@ -23,7 +23,7 @@ class UploadedImageDto {
     example: 'https://example.com/image.jpg',
     description: 'URL of the uploaded image',
   })
-  @IsUrl()
+  @IsUrl({ require_protocol: true })
   @IsNotEmpty()
   url: string;
 }

@@ -14,6 +14,6 @@ export class ExtractOutputFieldsDto extends AiAssistantBaseRequestDto {
   })
   @IsArray()
   @IsNotEmpty()
-  @IsUrl({}, { each: true })
+  @IsUrl({ require_protocol: true }, { each: true })
   imageUrls: string[];
 }

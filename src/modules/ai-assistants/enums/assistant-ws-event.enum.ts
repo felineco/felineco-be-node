@@ -1,14 +1,15 @@
 // src/modules/ai-assistants/enums/assistant-ws-event.enum.ts
 export enum AssistantWsEventRequestEnum {
-  CHAT_MESSAGE = 'chat_message',
   PING = 'ping',
+  AUDIO_CHUNK = 'audio_chunk',
 }
 
 export enum AssistantWsEventResponseEnum {
   SESSION_CREATED = 'session_created',
   SESSION_CLOSED = 'session_closed',
-  PONG = 'pong',
   ERROR = 'error',
+  PONG = 'pong',
+  AUDIO_CHUNK_RECEIVED = 'audio_chunk_received',
 }
 
 const syncPrefix = 'sync:';

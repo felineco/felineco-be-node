@@ -8,15 +8,16 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { randomUUID } from 'crypto';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { WsResponse } from 'src/common/dtos/ws-response.dto';
 import { RequestWithJwtPayload } from 'src/modules/auth/interfaces/jwt-request.interface';
 import { SendMessageDto } from '../dtos/requests/send-message.dto';
 import { SyncEventBroadcastEnum } from '../enums/assistant-ws-event.enum';
-import { RoomNameEnum } from '../enums/room-name.enum';
 import { AiAssistantsGateway } from '../gateways/ai-assistants.gateway';
 
+import { AppLoggerService } from 'src/common/services/logger.service';
+import { GeminiService } from 'src/modules/ai-services/services/gemini.service';
+import { OpenAIService } from 'src/modules/ai-services/services/openai.service';
+import { QueueService } from 'src/modules/queue/services/queue.service';
 import { AddAudiosDto } from '../dtos/requests/add-audios.dto';
 import { AddImagesDto } from '../dtos/requests/add-images.dto';
 import { DeleteAudiosDto } from '../dtos/requests/delete-audios.dto';
@@ -32,7 +33,53 @@ import {
 @ApiTags('Sync')
 @Controller('sync')
 export class SyncController {
-  constructor(private readonly aiAssistantsGateway: AiAssistantsGateway) {}
+  constructor(
+    private readonly aiAssistantsGateway: AiAssistantsGateway,
+    private readonly openAIService: OpenAIService,
+    private readonly geminiService: GeminiService,
+    private readonly queueService: QueueService,
+    private readonly logger: AppLoggerService,
+  ) {
+    this.logger.setContext(SyncController.name);
+  }
+
+  // @Auth()
+  // @Post('analyze-image')
+  // @HttpCode(HttpStatus.OK)
+  // async analyzeImageWithOpenAI(
+  //   @Body() body: { imageUrl: string },
+  // ): Promise<{ analysis: string; tokensUsed: number }> {
+  //   const analysis = await this.openAIService.analyzeImages(body.imageUrl);
+
+  //   return {
+  //     analysis: analysis.description,
+  //     tokensUsed: analysis.tokensUsed ?? 0,
+  //   };
+  // }
+
+  // @Auth()
+  // @Post('transcribe-audio')
+  // @HttpCode(HttpStatus.OK)
+  // async transcribeAudio(
+  //   @Body() body: { audioBase64: string; previousTranscript: string },
+  // ): Promise<string> {
+  //   const transcription = await this.geminiService.transcribeAudio(
+  //     body.audioBase64,
+  //     body.previousTranscript,
+  //   );
+
+  //   return transcription;
+  // }
+
+  // @Auth()
+  // @Post('transcribe-audio')
+  // @HttpCode(HttpStatus.OK)
+  // async transcribeAudio(
+  //   @Body() body: { url: string },
+  // ): Promise<{ transcription: string; tokensUsed?: number }> {
+  //   const transcription = await this.geminiService.transcribeWholeAudio(
+  //     body.url,
+  //   );
 
   // TODO: This is a sample working endpoint for testing purposes.
   @Auth()
@@ -42,7 +89,7 @@ export class SyncController {
     @Body() sendMessageDto: SendMessageDto,
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
-    this.broadcastMessage<string>({
+    this.aiAssistantsGateway.broadcastMessage<string>({
       data: sendMessageDto.message,
       event: SyncEventBroadcastEnum.PONG,
       roomId: req.user.sub,
@@ -59,15 +106,53 @@ export class SyncController {
     @Body() addImagesDto: AddImagesDto,
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
-    const images: UploadedImage[] = addImagesDto.images;
+    const images: UploadedImage[] = addImagesDto.images.map((image) => ({
+      id: image.id,
+      url: image.url,
+      aiAnalysis: '', // Placeholder for AI analysis result
+    }));
+
+    // Initially add images without analysis for immediate response
     this.aiAssistantsGateway.addImagesToUserModel(req.user.sub, images);
 
-    this.broadcastMessage<UploadedImage[]>({
-      data: images,
-      event: SyncEventBroadcastEnum.ADD_IMAGES,
-      roomId: req.user.sub,
-      originSocketId: addImagesDto.socketId,
+    // Analyze each image using OpenAI in parallel
+    const analysisRoutine = addImagesDto.images.map(async (image) => {
+      const analysisResult = await this.openAIService.analyzeImages(image.url);
+      return {
+        id: image.id,
+        url: image.url,
+        aiAnalysis: analysisResult.description,
+        tokensUsed: analysisResult.tokensUsed,
+      };
     });
+    Promise.all(analysisRoutine)
+      .then((analysisResults) => {
+        const imagesToUpdate: UploadedImage[] = analysisResults.map(
+          (analysis) => {
+            return {
+              id: analysis.id,
+              url: analysis.url,
+              aiAnalysis: analysis.aiAnalysis,
+            };
+          },
+        );
+        this.aiAssistantsGateway.addImagesToUserModel(
+          req.user.sub,
+          imagesToUpdate,
+        );
+        // Trigger the analysis after processing all images
+        void this.queueService.publishAnalysisTrigger(req.user.sub);
+      })
+      .catch((error) => {
+        // Log here as the error won't be caught by global handler
+        if (error instanceof Error) {
+          this.logger.error(
+            `[${req.method}] ${req.url} - Status: 500 - Unhandled Error: ${error.message}`,
+            error.stack,
+          );
+        }
+        this.logger.error(`An error occurred: ${JSON.stringify(error)}`);
+      });
   }
 
   @Auth()
@@ -79,13 +164,6 @@ export class SyncController {
   ): Promise<void> {
     const imageIds: string[] = deleteImagesDto.images.map((image) => image.id);
     this.aiAssistantsGateway.deleteImagesFromUserModel(req.user.sub, imageIds);
-
-    this.broadcastMessage<string[]>({
-      data: imageIds,
-      event: SyncEventBroadcastEnum.DELETE_IMAGES,
-      roomId: req.user.sub,
-      originSocketId: deleteImagesDto.socketId,
-    });
   }
 
   @Auth()
@@ -95,15 +173,61 @@ export class SyncController {
     @Body() addAudiosDto: AddAudiosDto,
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
-    const audios: UploadedAudio[] = addAudiosDto.audios;
+    const audios: UploadedAudio[] = addAudiosDto.audios.map((audio) => ({
+      id: audio.id,
+      url: audio.url,
+      duration: audio.duration,
+      transcription: '', // Placeholder for transcription result
+    }));
+
+    // Initially add audios without transcription for immediate response
     this.aiAssistantsGateway.addAudiosToUserModel(req.user.sub, audios);
 
-    this.broadcastMessage<UploadedAudio[]>({
-      data: audios,
-      event: SyncEventBroadcastEnum.ADD_AUDIOS,
-      roomId: req.user.sub,
-      originSocketId: addAudiosDto.socketId,
+    // Analyze each audio using Gemini in parallel
+    const transcriptionRoutine = audios.map(async (audio) => {
+      const transcriptionResult = await this.geminiService.transcribeWholeAudio(
+        audio.url,
+        this.aiAssistantsGateway.getUserLanguage(req.user.sub),
+      );
+
+      return {
+        id: audio.id,
+        url: audio.url,
+        duration: audio.duration,
+        transcription: transcriptionResult.transcription,
+        tokensUsed: transcriptionResult.tokensUsed,
+      };
     });
+
+    Promise.all(transcriptionRoutine)
+      .then((transcriptionResults) => {
+        const audiosToUpdate: UploadedAudio[] = transcriptionResults.map(
+          (transcription) => {
+            return {
+              id: transcription.id,
+              url: transcription.url,
+              duration: transcription.duration,
+              transcription: transcription.transcription,
+            };
+          },
+        );
+        this.aiAssistantsGateway.addAudiosToUserModel(
+          req.user.sub,
+          audiosToUpdate,
+        );
+        // Trigger the analysis after processing all audios
+        void this.queueService.publishAnalysisTrigger(req.user.sub);
+      })
+      .catch((error) => {
+        // Log here as the error won't be caught by global handler
+        if (error instanceof Error) {
+          this.logger.error(
+            `[${req.method}] ${req.url} - Status: 500 - Unhandled Error: ${error.message}`,
+            error.stack,
+          );
+        }
+        this.logger.error(`An error occurred: ${JSON.stringify(error)}`);
+      });
   }
 
   @Auth()
@@ -115,14 +239,8 @@ export class SyncController {
   ): Promise<void> {
     const audioIds: string[] = deleteAudiosDto.audios.map((audio) => audio.id);
     this.aiAssistantsGateway.deleteAudiosFromUserModel(req.user.sub, audioIds);
-
-    this.broadcastMessage<string[]>({
-      data: audioIds,
-      event: SyncEventBroadcastEnum.DELETE_AUDIOS,
-      roomId: req.user.sub,
-      originSocketId: deleteAudiosDto.socketId,
-    });
   }
+
   @Auth()
   @Post('notes/update')
   @HttpCode(HttpStatus.OK)
@@ -132,13 +250,6 @@ export class SyncController {
   ): Promise<void> {
     const notes: OutputField[] = updateFieldsDto.fields;
     this.aiAssistantsGateway.updateNotesInUserModel(req.user.sub, notes);
-
-    this.broadcastMessage<OutputField[]>({
-      data: notes,
-      event: SyncEventBroadcastEnum.UPDATE_NOTE_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: updateFieldsDto.socketId,
-    });
   }
 
   @Auth()
@@ -150,13 +261,6 @@ export class SyncController {
   ): Promise<void> {
     const notes: OutputField[] = updateFieldsDto.fields;
     this.aiAssistantsGateway.updateRemindersInUserModel(req.user.sub, notes);
-
-    this.broadcastMessage<OutputField[]>({
-      data: notes,
-      event: SyncEventBroadcastEnum.UPDATE_REMINDER_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: updateFieldsDto.socketId,
-    });
   }
 
   @Auth()
@@ -168,13 +272,6 @@ export class SyncController {
   ): Promise<void> {
     const notes: OutputField[] = updateFieldsDto.fields;
     this.aiAssistantsGateway.updateWarningsInUserModel(req.user.sub, notes);
-
-    this.broadcastMessage<OutputField[]>({
-      data: notes,
-      event: SyncEventBroadcastEnum.UPDATE_WARNING_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: updateFieldsDto.socketId,
-    });
   }
 
   @Auth()
@@ -186,37 +283,5 @@ export class SyncController {
   ): Promise<void> {
     const noteIds: number[] = deleteFieldsDto.fields.map((field) => field.id);
     this.aiAssistantsGateway.deleteFieldsFromUserModel(req.user.sub, noteIds);
-
-    this.broadcastMessage<number[]>({
-      data: noteIds,
-      event: SyncEventBroadcastEnum.DELETE_FIELDS,
-      roomId: req.user.sub,
-      originSocketId: deleteFieldsDto.socketId,
-    });
-  }
-
-  private broadcastMessage<T>({
-    data,
-    event = SyncEventBroadcastEnum.PONG,
-    roomId = RoomNameEnum.GENERAL_NOTIFICATIONS,
-    originSocketId = '',
-  }: {
-    data: T;
-    event?: SyncEventBroadcastEnum;
-    roomId?: string;
-    originSocketId?: string;
-  }): void {
-    // Declare the response structure
-    const response: WsResponse<T> = {
-      data,
-      socketId: originSocketId,
-      timestamp: new Date().toISOString(),
-      msgId: randomUUID(),
-    };
-
-    // Send response via WebSocket to all connected clients
-    this.aiAssistantsGateway.server
-      .to(roomId) // Send to the user's room
-      .emit(event, response);
   }
 }

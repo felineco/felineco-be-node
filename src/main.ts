@@ -2,6 +2,7 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { AppLoggerService } from './common/services/logger.service';
 
@@ -10,6 +11,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: new AppLoggerService().setContext('NestFactory'),
   });
+
+  // Increase payload limit
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   const configService = app.get(ConfigService);
 

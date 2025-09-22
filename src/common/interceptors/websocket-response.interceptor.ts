@@ -33,7 +33,7 @@ export class WebSocketResponseInterceptor<T>
           socketId: client.id,
           timestamp: new Date().toISOString(),
           msgId: randomUUID(),
-        } as WsResponse<T>;
+        };
       }),
     );
   }

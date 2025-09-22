@@ -25,7 +25,7 @@ class UploadedAudioDto {
     example: 'https://example.com/audio.mp3',
     description: 'URL of the uploaded audio',
   })
-  @IsUrl()
+  @IsUrl({ require_protocol: true })
   @IsNotEmpty()
   url: string;
 

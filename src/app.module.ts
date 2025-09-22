@@ -17,13 +17,18 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ValidationPipe } from './common/pipes/validation.pipe';
 import { CommonServicesModule } from './common/services/common-services.module';
+import aiConfig from './config/ai.config';
 import grpcConfig from './config/grpc.config';
 import loggingConfig from './config/logging.config';
+import queueConfig from './config/queue.config';
 import s3Config from './config/s3.config';
 import { AiAssistantsModule } from './modules/ai-assistants/ai-assistants.module';
+import { AiServicesModule } from './modules/ai-services/ai-services.module';
+import { AudioModule } from './modules/audio/audio.module';
 import { GrpcModule } from './modules/grpc-clients/grpc.module';
 import { HealthModule } from './modules/health/health.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
+import { QueueModule } from './modules/queue/queue.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { S3Module } from './modules/s3/s3.module';
 import { SeedingModule } from './modules/seeding/seeding.module';
@@ -42,6 +47,8 @@ import { TestModule } from './modules/test/test.module';
         loggingConfig,
         s3Config,
         grpcConfig,
+        queueConfig,
+        aiConfig,
       ],
       envFilePath: '.env', // Mostly for local development
     }),
@@ -61,8 +68,11 @@ import { TestModule } from './modules/test/test.module';
     HealthModule,
     // Test Module for dev to play around
     TestModule,
-    // WebSocketGateway
+    // AI Modules
     AiAssistantsModule,
+    AiServicesModule,
+    // Processing Modules
+    AudioModule,
     // Feature modules
     AuthModule,
     UsersModule,
@@ -70,7 +80,9 @@ import { TestModule } from './modules/test/test.module';
     PermissionsModule,
     SessionsModule,
     S3Module,
+    // Connections
     GrpcModule,
+    QueueModule,
   ],
   controllers: [],
   providers: [

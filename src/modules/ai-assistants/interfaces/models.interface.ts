@@ -1,14 +1,25 @@
 // src/modules/ai-assistants/interfaces/models.ts
 
+import { LanguageEnum } from 'src/common/enums/language.enum';
+
 export interface UploadedImage {
   id: string;
   url: string;
+  aiAnalysis: string;
 }
 
 export interface UploadedAudio {
   id: string;
   url: string;
   duration?: number; // Duration in seconds
+  transcription: string;
+}
+
+export interface OngoingAudioTranscription {
+  id: string;
+  currentFullTranscription: string;
+  currentFullTranscriptionFromLargeChunks: string;
+  transcriptionConsumerTag: string; // Id of the rabbitmq consumer that processes audio chunks for this transcription
 }
 
 export interface OutputField {
@@ -20,10 +31,17 @@ export interface OutputField {
   order: number;
 }
 
+export interface ImageAnalysis {
+  description: string;
+}
+
 export interface UserModel {
   images: Map<string, UploadedImage>;
   audios: Map<string, UploadedAudio>;
+  ongoingTranscriptions: Map<string, OngoingAudioTranscription>; // Current transcriptions being processed
   noteFields: Map<number, OutputField>;
   reminderFields: Map<number, OutputField>;
   warningFields: Map<number, OutputField>;
+  analysisTriggerConsumerTag: string;
+  language: LanguageEnum;
 }
