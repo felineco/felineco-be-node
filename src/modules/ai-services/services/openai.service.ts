@@ -87,7 +87,7 @@ export class OpenAIService {
       detail: 'auto',
     }));
     const response = await this.openai.responses.parse({
-      model: OpenAIModel.GPT_5,
+      model: OpenAIModel.GPT_5_NANO,
       input: [
         {
           role: 'user',
@@ -107,6 +107,7 @@ export class OpenAIService {
           'extract_output_fields_ai_result',
         ),
       },
+      reasoning: { effort: 'low' },
     });
 
     const result = {

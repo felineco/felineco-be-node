@@ -106,7 +106,7 @@ export class GeminiService {
       `;
 
     this.promptTranscribingWholeAudio = `Transcribe this audio, which might be a doctor-patient conversations in their ORIGINAL LANGUAGE.`;
-    this.promptGeneratingNotes = `You are a note generation agent for a doctor. You will be given transcriptions which areas likely to be conversations between a doctor and a patient. You will also be given some descriptions (in text) of pictures that the doctor took, mostly about the patient's medical information. Though some transcriptions might not be completed. Given the previous fields, you need to UPDATE NOTE FIELDS for the doctor to fill in the EHR system base on the available information. Please also create/update reminder and warning  fields for the doctor if you think there are any things that the doctor should be aware of or any conflicting information or wrong practices from the conversation and images (if you don't have any, generate a general label with value saying there are no reminders or warnings)`;
+    this.promptGeneratingNotes = `You are a note generation agent for a doctor. You will be given transcriptions which areas likely to be conversations between a doctor and a patient. You will also be given some descriptions (in text) of pictures that the doctor took, mostly about the patient's medical information. Though some transcriptions might not be completed. Given the previous fields, you need to UPDATE NOTE FIELDS for the doctor to fill in the EHR system base on the available information. Please also create/update reminder and warning fields for the doctor if you think there are any things that the doctor should be aware of or any conflicting information or wrong practices from the conversation and images (if you don't have any, generate a general label with value saying there are no reminders or warnings)`;
   }
 
   async transcribeAudioSegments(
@@ -211,8 +211,6 @@ export class GeminiService {
     warningFields: OutputField[];
     tokensUsed?: number;
   }> {
-    // Build the prompt
-
     // Transcriptions from audios
     const allTranscriptions: string[] = [];
 
@@ -321,8 +319,13 @@ export class GeminiService {
       const noteFields: OutputField[] =
         parsed.noteFields?.map((field) => {
           // Old field to get the label and guide
-          const id = field.id ?? ++maxId;
+          let id = field.id ?? ++maxId;
           const oldField = userModel.noteFields.get(id);
+          // if oldField is not found id should be the new maxId
+          if (!oldField) {
+            id = ++maxId;
+          }
+
           return {
             id,
             label: oldField?.label ?? '',
@@ -335,11 +338,16 @@ export class GeminiService {
       const reminderFields: OutputField[] =
         parsed.reminderFields?.map((field) => {
           // Old field to get the label and guide
-          const id = field.id ?? ++maxId;
+          let id = field.id ?? ++maxId;
           const oldField = userModel.reminderFields.get(id);
+          // if oldField is not found id should be the new maxId
+          if (!oldField) {
+            id = ++maxId;
+          }
+
           return {
             id,
-            label: oldField?.label ?? '',
+            label: field?.label ?? '',
             value: field.value ?? '',
             guide: oldField?.guide ?? '',
             sample: oldField?.sample ?? '',
@@ -349,11 +357,16 @@ export class GeminiService {
       const warningFields: OutputField[] =
         parsed.warningFields?.map((field) => {
           // Old field to get the label and guide
-          const id = field.id ?? ++maxId;
+          let id = field.id ?? ++maxId;
           const oldField = userModel.warningFields.get(id);
+          // if oldField is not found id should be the new maxId
+          if (!oldField) {
+            id = ++maxId;
+          }
+
           return {
             id,
-            label: oldField?.label ?? '',
+            label: field?.label ?? '',
             value: field.value ?? '',
             guide: oldField?.guide ?? '',
             sample: oldField?.sample ?? '',

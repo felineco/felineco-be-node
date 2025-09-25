@@ -4,7 +4,7 @@ FROM node:22.15.0-alpine3.21 AS build
 WORKDIR /usr/src/app
 
 # Install yarn
-RUN apk add --no-cache yarn
+RUN apk add --no-cache yarn ffmpeg
 
 # Copy package files and install all dependencies
 COPY package.json yarn.lock ./
@@ -39,7 +39,7 @@ COPY --from=build /usr/src/app/dist ./dist
 EXPOSE $PORT
 
 # Install curl for health checks
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl ffmpeg
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
