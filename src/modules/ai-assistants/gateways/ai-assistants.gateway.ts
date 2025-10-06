@@ -21,6 +21,7 @@ import { LanguageEnum } from 'src/common/enums/language.enum';
 import { AudioMessage } from 'src/common/interfaces/audio-message.interface';
 import { AppLoggerService } from 'src/common/services/logger.service';
 import { GeminiService } from 'src/modules/ai-services/services/gemini.service';
+import { OpenAIService } from 'src/modules/ai-services/services/openai.service';
 import { AudioProcessingService } from 'src/modules/audio/services/audio-processing.service';
 import { AuthService } from 'src/modules/auth/services/auth.service';
 import { AudioQueueService } from 'src/modules/queue/services/audio-queue.service';
@@ -71,6 +72,7 @@ export class AiAssistantsGateway
     private readonly sessionsService: SessionsService,
     private readonly queueService: QueueService,
     private readonly audioQueueService: AudioQueueService,
+    private readonly openAIService: OpenAIService,
     private readonly geminiService: GeminiService,
     private readonly audioProcessingService: AudioProcessingService,
     private readonly configService: ConfigService,
@@ -335,29 +337,81 @@ export class AiAssistantsGateway
     };
   }
 
-  addImagesToUserModel(
+  async addImagesToUserModel(
     userId: string,
     images: UploadedImage[],
     originSocketId: string = '',
-  ): void {
-    const userModel = this.userModelMap.get(userId);
-    if (userModel) {
-      images.forEach((image) => userModel.images.set(image.id, image));
-    }
+  ): Promise<void> {
+    await this.pushAITaskToQueue(userId);
 
-    this.broadcastMessage<UploadedImage[]>({
-      data: images,
-      event: SyncEventBroadcastEnum.ADD_IMAGES,
-      roomId: userId,
-      originSocketId,
-    });
+    try {
+      const userModel = this.userModelMap.get(userId);
+      if (userModel === undefined) {
+        throw new Error(
+          `User model not found for userId: ${userId} when adding images - logic error`,
+        );
+      }
+      images.forEach((image) => userModel.images.set(image.id, image));
+
+      this.broadcastMessage<UploadedImage[]>({
+        data: images,
+        event: SyncEventBroadcastEnum.ADD_IMAGES,
+        roomId: userId,
+        originSocketId,
+      });
+
+      // Analyze each image using OpenAI in parallel for image that don't have analysis yet
+      const analysisRoutine = images
+        .filter((image) => image.aiAnalysis === '')
+        .map(async (image) => {
+          const analysisResult = await this.openAIService.analyzeImages(
+            image.url,
+          );
+          return {
+            id: image.id,
+            url: image.url,
+            aiAnalysis: analysisResult.description,
+            tokensUsed: analysisResult.tokensUsed,
+          };
+        });
+
+      const analysisResults = await Promise.all(analysisRoutine);
+
+      const imagesToUpdate: UploadedImage[] = analysisResults
+        .map((analysis) => {
+          return {
+            id: analysis.id,
+            url: analysis.url,
+            aiAnalysis: analysis.aiAnalysis,
+          };
+        })
+        .filter((image) => userModel.images.has(image.id)); // Filter out images that might have been deleted in the meantime
+
+      imagesToUpdate.forEach((image) => {
+        userModel.images.set(image.id, image);
+      });
+
+      this.broadcastMessage<UploadedImage[]>({
+        data: imagesToUpdate,
+        event: SyncEventBroadcastEnum.ADD_IMAGES,
+        roomId: userId,
+        originSocketId,
+      });
+
+      // Trigger analysis
+      void this.queueService.publishAnalysisTrigger(userId);
+    } catch (error) {
+      this.logger.error(error);
+    } finally {
+      await this.popAITaskFromQueue(userId);
+    }
   }
 
-  deleteImagesFromUserModel(
+  async deleteImagesFromUserModel(
     userId: string,
     imageIds: string[],
     originSocketId: string = '',
-  ): void {
+  ): Promise<void> {
     const userModel = this.userModelMap.get(userId);
     if (userModel) {
       imageIds.forEach((imageId) => userModel.images.delete(imageId));
@@ -370,13 +424,21 @@ export class AiAssistantsGateway
     });
   }
 
-  addAudiosToUserModel(
+  async addAudiosToUserModel(
     userId: string,
     audios: UploadedAudio[],
     originSocketId: string = '',
-  ): void {
-    const userModel = this.userModelMap.get(userId);
-    if (userModel) {
+  ): Promise<void> {
+    await this.pushAITaskToQueue(userId);
+
+    try {
+      const userModel = this.userModelMap.get(userId);
+
+      if (userModel === undefined) {
+        throw new Error(
+          `User model not found for userId: ${userId} when adding audios - logic error`,
+        );
+      }
       audios.forEach((audio) => {
         userModel.audios.set(audio.id, audio);
         // Special logic: clear the ongoing transcription if exists (REPLACE THE ONGOING TRANSCRIPTION WITH THE FINAL ONE IF THERE ID IS DUPLICATED)
@@ -384,21 +446,75 @@ export class AiAssistantsGateway
           userModel.ongoingTranscriptions.delete(audio.id);
         }
       });
-    }
 
-    this.broadcastMessage<UploadedAudio[]>({
-      data: audios,
-      event: SyncEventBroadcastEnum.ADD_AUDIOS,
-      roomId: userId,
-      originSocketId,
-    });
+      this.broadcastMessage<UploadedAudio[]>({
+        data: audios,
+        event: SyncEventBroadcastEnum.ADD_AUDIOS,
+        roomId: userId,
+        originSocketId,
+      });
+
+      // Analyze each audio using Gemini in parallel
+      const transcriptionRoutine = audios
+        .filter((audio) => audio.transcription === '')
+        .map(async (audio) => {
+          const transcriptionResult =
+            await this.geminiService.transcribeWholeAudio(
+              audio.url,
+              userModel.language,
+            );
+
+          return {
+            id: audio.id,
+            url: audio.url,
+            duration: audio.duration,
+            transcription: transcriptionResult.transcription,
+            tokensUsed: transcriptionResult.tokensUsed,
+          };
+        });
+
+      const transcriptionResults = await Promise.all(transcriptionRoutine);
+
+      const audiosToUpdate: UploadedAudio[] = transcriptionResults
+        .map((transcription) => {
+          return {
+            id: transcription.id,
+            url: transcription.url,
+            duration: transcription.duration,
+            transcription: transcription.transcription,
+          };
+        })
+        .filter((audio) => userModel.audios.has(audio.id)); // Filter out audios that might have been deleted in the meantime
+
+      audiosToUpdate.forEach((audio) => {
+        userModel.audios.set(audio.id, audio);
+        // Special logic: clear the ongoing transcription if exists (REPLACE THE ONGOING TRANSCRIPTION WITH THE FINAL ONE IF THERE ID IS DUPLICATED)
+        if (userModel.ongoingTranscriptions.has(audio.id)) {
+          userModel.ongoingTranscriptions.delete(audio.id);
+        }
+      });
+
+      this.broadcastMessage<UploadedAudio[]>({
+        data: audiosToUpdate,
+        event: SyncEventBroadcastEnum.ADD_AUDIOS,
+        roomId: userId,
+        originSocketId,
+      });
+
+      // Trigger analysis
+      void this.queueService.publishAnalysisTrigger(userId);
+    } catch (error) {
+      this.logger.error(error);
+    } finally {
+      await this.popAITaskFromQueue(userId);
+    }
   }
 
-  deleteAudiosFromUserModel(
+  async deleteAudiosFromUserModel(
     userId: string,
     audioIds: string[],
     originSocketId: string = '',
-  ): void {
+  ): Promise<void> {
     const userModel = this.userModelMap.get(userId);
     if (userModel) {
       audioIds.forEach((audioId) => userModel.audios.delete(audioId));
@@ -412,11 +528,11 @@ export class AiAssistantsGateway
     });
   }
 
-  updateNotesInUserModel(
+  async updateNotesInUserModel(
     userId: string,
     notes: OutputField[],
     originSocketId: string = '',
-  ): void {
+  ): Promise<void> {
     const userModel = this.userModelMap.get(userId);
     if (userModel) {
       notes.forEach((field) => {
@@ -431,11 +547,11 @@ export class AiAssistantsGateway
     });
   }
 
-  updateRemindersInUserModel(
+  async updateRemindersInUserModel(
     userId: string,
     reminderFields: OutputField[],
     originSocketId: string = '',
-  ): void {
+  ): Promise<void> {
     const userModel = this.userModelMap.get(userId);
     if (userModel) {
       reminderFields.forEach((field) => {
@@ -451,11 +567,11 @@ export class AiAssistantsGateway
     });
   }
 
-  updateWarningsInUserModel(
+  async updateWarningsInUserModel(
     userId: string,
     warningFields: OutputField[],
     originSocketId: string = '',
-  ): void {
+  ): Promise<void> {
     const userModel = this.userModelMap.get(userId);
     if (userModel) {
       warningFields.forEach((field) => {
@@ -471,11 +587,11 @@ export class AiAssistantsGateway
     });
   }
 
-  deleteFieldsFromUserModel(
+  async deleteFieldsFromUserModel(
     userId: string,
     fieldIds: number[],
     originSocketId: string = '',
-  ): void {
+  ): Promise<void> {
     const userModel = this.userModelMap.get(userId);
     if (userModel) {
       fieldIds.forEach((fieldId) => {
@@ -508,6 +624,9 @@ export class AiAssistantsGateway
     // Return if no audio messages
     if (audioMessages.length === 0) return;
     const userId = audioMessages[0].userId;
+
+    await this.pushAITaskToQueue(userId);
+
     const audioId = audioMessages[0].id;
     // Get user model
     // For debugging purposes only
@@ -624,6 +743,8 @@ export class AiAssistantsGateway
       ongoingTranscription.currentFullTranscription =
         transcriptionResult.fullTranscription;
     }
+
+    await this.popAITaskFromQueue(userId);
   }
 
   private async analyzeUserModelData(userId: string): Promise<void> {
@@ -638,9 +759,9 @@ export class AiAssistantsGateway
     }
     const result = await this.geminiService.analyzeUserModel(userModel);
     // Update the user model with new fields
-    this.updateNotesInUserModel(userId, result.noteFields);
-    this.updateRemindersInUserModel(userId, result.reminderFields);
-    this.updateWarningsInUserModel(userId, result.warningFields);
+    await this.updateNotesInUserModel(userId, result.noteFields);
+    await this.updateRemindersInUserModel(userId, result.reminderFields);
+    await this.updateWarningsInUserModel(userId, result.warningFields);
 
     await this.popAITaskFromQueue(userId);
   }

@@ -109,50 +109,10 @@ export class SyncController {
     const images: UploadedImage[] = addImagesDto.images.map((image) => ({
       id: image.id,
       url: image.url,
-      aiAnalysis: '', // Placeholder for AI analysis result
+      aiAnalysis: '', // Empty string will trigger the analysis
     }));
 
-    // Initially add images without analysis for immediate response
-    this.aiAssistantsGateway.addImagesToUserModel(req.user.sub, images);
-
-    // Analyze each image using OpenAI in parallel
-    const analysisRoutine = addImagesDto.images.map(async (image) => {
-      const analysisResult = await this.openAIService.analyzeImages(image.url);
-      return {
-        id: image.id,
-        url: image.url,
-        aiAnalysis: analysisResult.description,
-        tokensUsed: analysisResult.tokensUsed,
-      };
-    });
-    Promise.all(analysisRoutine)
-      .then((analysisResults) => {
-        const imagesToUpdate: UploadedImage[] = analysisResults.map(
-          (analysis) => {
-            return {
-              id: analysis.id,
-              url: analysis.url,
-              aiAnalysis: analysis.aiAnalysis,
-            };
-          },
-        );
-        this.aiAssistantsGateway.addImagesToUserModel(
-          req.user.sub,
-          imagesToUpdate,
-        );
-        // Trigger the analysis after processing all images
-        void this.queueService.publishAnalysisTrigger(req.user.sub);
-      })
-      .catch((error) => {
-        // Log here as the error won't be caught by global handler
-        if (error instanceof Error) {
-          this.logger.error(
-            `[${req.method}] ${req.url} - Status: 500 - Unhandled Error: ${error.message}`,
-            error.stack,
-          );
-        }
-        this.logger.error(error);
-      });
+    void this.aiAssistantsGateway.addImagesToUserModel(req.user.sub, images);
   }
 
   @Auth()
@@ -163,7 +123,10 @@ export class SyncController {
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
     const imageIds: string[] = deleteImagesDto.images.map((image) => image.id);
-    this.aiAssistantsGateway.deleteImagesFromUserModel(req.user.sub, imageIds);
+    void this.aiAssistantsGateway.deleteImagesFromUserModel(
+      req.user.sub,
+      imageIds,
+    );
   }
 
   @Auth()
@@ -181,47 +144,7 @@ export class SyncController {
     }));
 
     // Initially add audios without transcription for immediate response
-    this.aiAssistantsGateway.addAudiosToUserModel(req.user.sub, audios);
-
-    // Analyze each audio using Gemini in parallel
-    const transcriptionRoutine = audios.map(async (audio) => {
-      const transcriptionResult = await this.geminiService.transcribeWholeAudio(
-        audio.url,
-        this.aiAssistantsGateway.getUserLanguage(req.user.sub),
-      );
-
-      return {
-        id: audio.id,
-        url: audio.url,
-        duration: audio.duration,
-        transcription: transcriptionResult.transcription,
-        tokensUsed: transcriptionResult.tokensUsed,
-      };
-    });
-
-    Promise.all(transcriptionRoutine)
-      .then((transcriptionResults) => {
-        const audiosToUpdate: UploadedAudio[] = transcriptionResults.map(
-          (transcription) => {
-            return {
-              id: transcription.id,
-              url: transcription.url,
-              duration: transcription.duration,
-              transcription: transcription.transcription,
-            };
-          },
-        );
-        this.aiAssistantsGateway.addAudiosToUserModel(
-          req.user.sub,
-          audiosToUpdate,
-        );
-        // Trigger the analysis after processing all audios
-        void this.queueService.publishAnalysisTrigger(req.user.sub);
-      })
-      .catch((error) => {
-        // Log here as the error won't be caught by global handler
-        this.logger.error(error);
-      });
+    void this.aiAssistantsGateway.addAudiosToUserModel(req.user.sub, audios);
   }
 
   @Auth()
@@ -232,7 +155,10 @@ export class SyncController {
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
     const audioIds: string[] = deleteAudiosDto.audios.map((audio) => audio.id);
-    this.aiAssistantsGateway.deleteAudiosFromUserModel(req.user.sub, audioIds);
+    void this.aiAssistantsGateway.deleteAudiosFromUserModel(
+      req.user.sub,
+      audioIds,
+    );
   }
 
   @Auth()
@@ -243,7 +169,7 @@ export class SyncController {
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
     const notes: OutputField[] = updateFieldsDto.fields;
-    this.aiAssistantsGateway.updateNotesInUserModel(req.user.sub, notes);
+    void this.aiAssistantsGateway.updateNotesInUserModel(req.user.sub, notes);
   }
 
   @Auth()
@@ -254,7 +180,10 @@ export class SyncController {
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
     const notes: OutputField[] = updateFieldsDto.fields;
-    this.aiAssistantsGateway.updateRemindersInUserModel(req.user.sub, notes);
+    void this.aiAssistantsGateway.updateRemindersInUserModel(
+      req.user.sub,
+      notes,
+    );
   }
 
   @Auth()
@@ -265,7 +194,10 @@ export class SyncController {
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
     const notes: OutputField[] = updateFieldsDto.fields;
-    this.aiAssistantsGateway.updateWarningsInUserModel(req.user.sub, notes);
+    void this.aiAssistantsGateway.updateWarningsInUserModel(
+      req.user.sub,
+      notes,
+    );
   }
 
   @Auth()
@@ -276,6 +208,9 @@ export class SyncController {
     @Req() req: RequestWithJwtPayload,
   ): Promise<void> {
     const noteIds: number[] = deleteFieldsDto.fields.map((field) => field.id);
-    this.aiAssistantsGateway.deleteFieldsFromUserModel(req.user.sub, noteIds);
+    void this.aiAssistantsGateway.deleteFieldsFromUserModel(
+      req.user.sub,
+      noteIds,
+    );
   }
 }
