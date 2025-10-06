@@ -24,5 +24,11 @@ export enum SyncEventBroadcastEnum {
   DELETE_FIELDS = `${syncPrefix}delete_fields`,
   UPDATE_REMINDER_FIELDS = `${syncPrefix}update_reminder_fields`,
   UPDATE_WARNING_FIELDS = `${syncPrefix}update_warning_fields`,
+  AI_STATUS = `${syncPrefix}ai_status`,
   PONG = `${syncPrefix}pong`,
+}
+
+export enum AiStatusEnum {
+  THINKING = 'thinking',
+  IDLE = 'idle',
 }

@@ -43,5 +43,6 @@ export interface UserModel {
   reminderFields: Map<number, OutputField>;
   warningFields: Map<number, OutputField>;
   analysisTriggerConsumerTag: string;
+  isAIThinkingQueue: Array<string>; // Queue to indicate AI is thinking to signal the front end
   language: LanguageEnum;
 }

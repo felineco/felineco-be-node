@@ -33,6 +33,7 @@ import { sampleNoteFields } from '../constants/sample-template.constant';
 import { AudioChunkWsDto } from '../dtos/requests/audio-chunk-ws.dto';
 import { WsInitializeDto } from '../dtos/responses/ws-initialize.dto';
 import {
+  AiStatusEnum,
   AssistantWsEventRequestEnum,
   AssistantWsEventResponseEnum,
   SyncEventBroadcastEnum,
@@ -179,6 +180,7 @@ export class AiAssistantsGateway
             reminderFields: new Map(),
             warningFields: new Map(),
             analysisTriggerConsumerTag,
+            isAIThinkingQueue: [],
             language: userLanguage,
           };
 
@@ -625,6 +627,8 @@ export class AiAssistantsGateway
   }
 
   private async analyzeUserModelData(userId: string): Promise<void> {
+    await this.pushAITaskToQueue(userId);
+
     const userModel = this.userModelMap.get(userId);
     if (userModel === undefined) {
       this.logger.error(
@@ -637,6 +641,8 @@ export class AiAssistantsGateway
     this.updateNotesInUserModel(userId, result.noteFields);
     this.updateRemindersInUserModel(userId, result.reminderFields);
     this.updateWarningsInUserModel(userId, result.warningFields);
+
+    await this.popAITaskFromQueue(userId);
   }
 
   public broadcastMessage<T>({
@@ -705,5 +711,53 @@ export class AiAssistantsGateway
       // Then delete the user model
       this.userModelMap.delete(userId);
     }
+  }
+
+  public async pushAITaskToQueue(userId: string): Promise<boolean> {
+    const userModel = this.userModelMap.get(userId);
+    if (userModel) {
+      userModel.isAIThinkingQueue.push('1');
+      this.broadcastMessage<AiStatusEnum>({
+        data: AiStatusEnum.THINKING,
+        event: SyncEventBroadcastEnum.AI_STATUS,
+        roomId: userId,
+      });
+      return true;
+    } else {
+      this.logger.error(
+        `Logic error - user model not found for userId: ${userId} when pushing AI task to queue`,
+      );
+      return false;
+    }
+  }
+
+  public async popAITaskFromQueue(userId: string): Promise<boolean> {
+    const userModel = this.userModelMap.get(userId);
+
+    if (userModel === undefined) {
+      this.logger.error(
+        `Logic error - user model not found for userId: ${userId} when popping AI task from queue or queue is empty`,
+      );
+      return false;
+    }
+
+    const task = userModel.isAIThinkingQueue.pop();
+
+    if (task === undefined) {
+      this.logger.error(
+        `Logic error - AI thinking queue is empty for userId: ${userId} when popping AI task from queue`,
+      );
+      return false;
+    }
+
+    if (userModel.isAIThinkingQueue.length === 0) {
+      this.broadcastMessage<AiStatusEnum>({
+        data: AiStatusEnum.IDLE,
+        event: SyncEventBroadcastEnum.AI_STATUS,
+        roomId: userId,
+      });
+    }
+
+    return true;
   }
 }
