@@ -79,11 +79,6 @@ export class GeminiService {
     // const audioOverlapLength = this.configService.getOrThrow<number>(
     //   'ai.transcriptionConfig.audioOverlapLength',
     // );
-    // const audioSegmentLength =
-    //   audioOverlapLength +
-    //   this.configService.getOrThrow<number>(
-    //     'ai.transcriptionConfig.audioSegmentLength',
-    //   );
 
     this.ai = new GoogleGenAI({ apiKey });
 
@@ -122,11 +117,12 @@ export class GeminiService {
   > {
     const contents = [
       { text: this.promptTranscribingAudioSegment },
-      { text: `Previous transcription: ${previousTranscript}` },
       { text: `The language of the conversation is likely to be: ${language}` },
+      { text: `Previous transcription: ${previousTranscript}` },
       { text: 'New audio segment:' },
       {
         inlineData: {
+          mimeType: 'audio/webm', // Audio chunk is always webm from frontend
           data: audioBase64,
         },
       },
@@ -147,6 +143,7 @@ export class GeminiService {
       const parsed = JSON.parse(
         aiResponse.text ?? '{}',
       ) as AudioSegmentTranscriptionResponse;
+
       return {
         fullTranscription: parsed.fullTranscription ?? previousTranscript,
         newSegmentTranscription: parsed.newSegmentTranscription ?? '',
@@ -154,10 +151,7 @@ export class GeminiService {
       };
     } catch (error) {
       // Log the error for debugging
-      this.logger.error(
-        'Error transcribing audio segment:',
-        JSON.stringify(error),
-      );
+      this.logger.error(error);
       return {
         fullTranscription: previousTranscript,
         newSegmentTranscription: '',
@@ -175,6 +169,11 @@ export class GeminiService {
     if (!response.ok) {
       throw new Error(`Failed to fetch audio from URL: ${response.statusText}`);
     }
+
+    // Get MIME type from response headers, fallback to URL extension, then default
+    const mimeType =
+      response.headers.get('content-type') ?? this.getMimeTypeFromUrl(url);
+
     const arrayBuffer = await response.arrayBuffer();
     const audioBase64 = Buffer.from(arrayBuffer).toString('base64');
 
@@ -184,7 +183,7 @@ export class GeminiService {
       { text: 'Audio:' },
       {
         inlineData: {
-          mimeType: 'audio/mp3',
+          mimeType,
           data: audioBase64,
         },
       },
@@ -382,13 +381,48 @@ export class GeminiService {
       };
     } catch (error) {
       // Log the error for debugging
-      this.logger.error('Error analyzing user model:', JSON.stringify(error));
+      this.logger.error('Error analyzing user model');
+      this.logger.error(error);
       return {
         noteFields: [],
         reminderFields: [],
         warningFields: [],
         tokensUsed: aiResponse.usageMetadata?.totalTokenCount,
       };
+    }
+  }
+
+  private getMimeTypeFromUrl(url: string): string {
+    // Try to get extension from URL
+    const urlParts = url.split('?')[0]; // Remove query parameters
+    const extension = urlParts.split('.').pop()?.toLowerCase();
+
+    // If no extension found or extension is the same as the URL (no dot found)
+    if (extension === undefined || extension === urlParts) {
+      return 'audio/mp3';
+    }
+
+    switch (extension) {
+      case 'mp3':
+        return 'audio/mp3';
+      case 'wav':
+        return 'audio/wav';
+      case 'ogg':
+        return 'audio/ogg';
+      case 'webm':
+        return 'audio/webm';
+      case 'm4a':
+        return 'audio/mp4';
+      case 'aac':
+        return 'audio/aac';
+      case 'flac':
+        return 'audio/flac';
+      case 'opus':
+        return 'audio/opus';
+      case 'weba':
+        return 'audio/webm';
+      default:
+        return 'audio/mp3';
     }
   }
 }

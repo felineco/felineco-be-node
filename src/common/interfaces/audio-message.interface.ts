@@ -11,4 +11,5 @@ export interface AudioMessage {
   order: number;
   isLargeChunk: boolean;
   userId: string;
+  base64Chunk: string;
 }

@@ -3,7 +3,6 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqplib';
 import { Channel, ChannelModel, ConsumeMessage, Options } from 'amqplib';
-import { AudioMessage } from 'src/common/interfaces/audio-message.interface';
 import { AppLoggerService } from 'src/common/services/logger.service';
 
 @Injectable()
@@ -34,7 +33,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   private async connect(): Promise<void> {
     try {
-      this.connection = await amqp.connect(this.rabbitmqUrl);
+      this.connection = await amqp.connect(this.rabbitmqUrl, {
+        heartbeat: 60,
+      });
       this.channel = await this.connection.createChannel();
       // This is crucial for ensuring that we only run one consumer at a time
       await this.channel.prefetch(1); // Process one message at a time
@@ -55,9 +56,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       }
       this.logger.log('Disconnected from RabbitMQ');
     } catch (error) {
-      this.logger.error(
-        `Error disconnecting from RabbitMQ: ${JSON.stringify(error)}`,
-      );
+      this.logger.error(error);
     }
   }
 
@@ -79,10 +78,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         },
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to create queue ${queueName}: ${JSON.stringify(error)}`,
-      );
-      throw error;
+      this.logger.error(error);
     }
   }
 
@@ -109,102 +105,98 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.activeConsumers.delete(consumerTag);
   }
 
-  async consumeAudioChunk(
-    userId: string,
-    audioId: string,
-    callback: (
-      userId: string,
-      audioId: string,
-      audioInfos: { audioChunk: Buffer; audioMessage: AudioMessage }[],
-    ) => Promise<void>,
-  ): Promise<string> {
-    const queueName = this.getTranscriptionQueueName(userId, audioId);
-    await this.createQueue(queueName);
+  // async consumeAudioChunk(
+  //   userId: string,
+  //   audioId: string,
+  //   callback: (
+  //     userId: string,
+  //     audioId: string,
+  //     audioInfos: { audioChunk: Buffer; audioMessage: AudioMessage }[],
+  //   ) => Promise<void>,
+  // ): Promise<string> {
+  //   const queueName = this.getTranscriptionQueueName(userId, audioId);
+  //   await this.createQueue(queueName);
 
-    const drainAndProcess = async (oldestMsg: amqp.ConsumeMessage) => {
-      const allMessages: (amqp.ConsumeMessage | amqp.GetMessage)[] = [
-        oldestMsg,
-      ];
+  //   const drainAndProcess = async (oldestMsg: amqp.ConsumeMessage) => {
+  //     const allMessages: (amqp.ConsumeMessage | amqp.GetMessage)[] = [
+  //       oldestMsg,
+  //     ];
 
-      try {
-        // Drain all available messages from the queue
-        while (true) {
-          const msg = await this.channel?.get(queueName, { noAck: false });
-          if (msg === false || msg === undefined) break; // No more messages
-          allMessages.push(msg);
-        }
+  //     try {
+  //       // Drain all available messages from the queue
+  //       while (true) {
+  //         const msg = await this.channel?.get(queueName, { noAck: false });
+  //         if (msg === false || msg === undefined) break; // No more messages
+  //         allMessages.push(msg);
+  //       }
 
-        // Convert all messages to audioInfos
-        const audioInfos = allMessages.map((m) => {
-          const headers = m.properties.headers as {
-            id: string;
-            order: number;
-            isLargeChunk: boolean;
-            userId: string;
-          };
+  //       // Convert all messages to audioInfos
+  //       const audioInfos = allMessages.map((m) => {
+  //         const headers = m.properties.headers as {
+  //           id: string;
+  //           order: number;
+  //           isLargeChunk: boolean;
+  //           userId: string;
+  //         };
 
-          const audioMessage: AudioMessage = {
-            id: headers.id,
-            order: headers.order,
-            isLargeChunk: headers.isLargeChunk,
-            userId: headers.userId,
-          };
+  //         const audioMessage: AudioMessage = {
+  //           id: headers.id,
+  //           order: headers.order,
+  //           isLargeChunk: headers.isLargeChunk,
+  //           userId: headers.userId,
+  //         };
 
-          return { audioChunk: m.content, audioMessage };
-        });
+  //         return { audioChunk: m.content, audioMessage };
+  //       });
 
-        // Process all messages
-        await callback(userId, audioId, audioInfos);
-        // Ack all messages
-        allMessages.forEach((m) => this.channel?.ack(m));
-      } catch (error) {
-        this.logger.error(
-          `Error processing messages from queue ${queueName}: ${JSON.stringify(error)}`,
-        );
-        // Nack all messages to requeue them
-        allMessages.forEach((m) => this.channel?.nack(m, false, true));
-      }
-    };
+  //       // Process all messages
+  //       await callback(userId, audioId, audioInfos);
+  //       // Ack all messages
+  //       allMessages.forEach((m) => this.channel?.ack(m));
+  //     } catch (error) {
+  //       this.logger.error(error);
+  //       // Nack all messages to requeue them
+  //       allMessages.forEach((m) => this.channel?.nack(m, false, true));
+  //     }
+  //   };
 
-    // Set up consumer that just triggers the drain process
-    const result = await this.consume(queueName, (msg) => {
-      if (msg) {
-        // Trigger drain and process (fire and forget)
-        void drainAndProcess(msg);
-      }
-    });
+  //   // Set up consumer that just triggers the drain process
+  //   const result = await this.consume(queueName, (msg) => {
+  //     if (msg) {
+  //       // Trigger drain and process (fire and forget)
+  //       void drainAndProcess(msg);
+  //     }
+  //   });
 
-    return result.consumerTag;
-  }
+  //   return result.consumerTag;
+  // }
 
-  async publishAudioChunk(
-    audioChunk: Buffer,
-    audioMessage: AudioMessage,
-  ): Promise<boolean> {
-    if (!this.channel) {
-      throw new Error('RabbitMQ channel not available');
-    }
-    // Publish the audio chunk to the specified topic
-    try {
-      return this.channel.sendToQueue(
-        this.getTranscriptionQueueName(audioMessage.userId, audioMessage.id),
-        audioChunk,
-        {
-          headers: {
-            id: audioMessage.id,
-            order: audioMessage.order,
-            isLargeChunk: audioMessage.isLargeChunk,
-            userId: audioMessage.userId,
-          },
-        },
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to publish audio chunk: ${JSON.stringify(error)}`,
-      );
-      throw error;
-    }
-  }
+  // async publishAudioChunk(
+  //   audioChunk: Buffer,
+  //   audioMessage: AudioMessage,
+  // ): Promise<boolean> {
+  //   if (!this.channel) {
+  //     throw new Error('RabbitMQ channel not available');
+  //   }
+  //   // Publish the audio chunk to the specified topic
+  //   try {
+  //     return this.channel.sendToQueue(
+  //       this.getTranscriptionQueueName(audioMessage.userId, audioMessage.id),
+  //       audioChunk,
+  //       {
+  //         headers: {
+  //           id: audioMessage.id,
+  //           order: audioMessage.order,
+  //           isLargeChunk: audioMessage.isLargeChunk,
+  //           userId: audioMessage.userId,
+  //         },
+  //       },
+  //     );
+  //   } catch (error) {
+  //     this.logger.error(error);
+  //     return false;
+  //   }
+  // }
 
   async consumeAnalysisTrigger(
     userId: string,
@@ -232,9 +224,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         // Ack the original messages
         this.channel?.ack(oldestMsg);
       } catch (error) {
-        this.logger.error(
-          `Error processing messages from queue ${queueName}: ${JSON.stringify(error)}`,
-        );
+        this.logger.error(error);
         // Only Nack the original message to requeue it
         this.channel?.nack(oldestMsg, false, true);
       }
@@ -253,7 +243,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
 
   async publishAnalysisTrigger(userId: string): Promise<boolean> {
     if (!this.channel) {
-      throw new Error('RabbitMQ channel not available');
+      this.logger.error('RabbitMQ channel not available');
+      return false;
     }
     // Publish the audio chunk to the specified topic
     try {
@@ -262,10 +253,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
         Buffer.from(''),
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to publish audio chunk: ${JSON.stringify(error)}`,
-      );
-      throw error;
+      this.logger.error(error);
+      return false;
     }
   }
 
@@ -273,9 +262,9 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     return this.activeConsumers;
   }
 
-  private getTranscriptionQueueName(userId: string, audioId: string): string {
-    return `nfd.transcription.${userId}.${audioId}`;
-  }
+  // private getTranscriptionQueueName(userId: string, audioId: string): string {
+  //   return `nfd.transcription.${userId}.${audioId}`;
+  // }
 
   private getAnalysisTriggerQueueName(userId: string): string {
     return `nfd.analysis-trigger.${userId}`;

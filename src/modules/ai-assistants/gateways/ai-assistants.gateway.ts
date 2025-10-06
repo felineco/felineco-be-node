@@ -23,6 +23,7 @@ import { AppLoggerService } from 'src/common/services/logger.service';
 import { GeminiService } from 'src/modules/ai-services/services/gemini.service';
 import { AudioProcessingService } from 'src/modules/audio/services/audio-processing.service';
 import { AuthService } from 'src/modules/auth/services/auth.service';
+import { AudioQueueService } from 'src/modules/queue/services/audio-queue.service';
 import { QueueService } from 'src/modules/queue/services/queue.service';
 import { SessionsService } from 'src/modules/sessions/services/sessions.service';
 import { UsersService } from 'src/modules/users/services/users.service';
@@ -68,6 +69,7 @@ export class AiAssistantsGateway
     private readonly usersService: UsersService,
     private readonly sessionsService: SessionsService,
     private readonly queueService: QueueService,
+    private readonly audioQueueService: AudioQueueService,
     private readonly geminiService: GeminiService,
     private readonly audioProcessingService: AudioProcessingService,
     private readonly configService: ConfigService,
@@ -129,8 +131,8 @@ export class AiAssistantsGateway
         if (room.size === 0) {
           // Extra safety check to avoid overwriting existing user model
           if (this.userModelMap.has(payload.sub))
-            throw new Error(
-              'User model is not properly cleaned up even when room is empty - memory leak likely',
+            this.logger.error(
+              `User model already exists for userId: ${payload.sub} when room is empty - memory leak likely`,
             );
           // Room is empty, create a new user model for that user
           // Get user details and session template from database
@@ -268,7 +270,17 @@ export class AiAssistantsGateway
       );
       throw new Error('UserId not found in socket data');
     }
-    const audioBuffer = Buffer.from(data.chunk, 'base64');
+
+    // // For debugging purposes only
+    // console.log(
+    //   `Received audio chunk from userId: ${userId}, audioId: ${data.id}, order: ${data.order}, isLargeChunk: ${data.isLargeChunk}, chunk size: ${audioBuffer.length} bytes`,
+    // );
+    // const processedChunk = await this.audioProcessingService.trimFirstSeconds(
+    //   data.chunk,
+    //   this.audioOverlapLength, // This is actually not overlap but the initial seconds to trim as frontend need to append it to get metadata
+    // );
+    // await this.audioProcessingService.saveWebmAudioFile(processedChunk);
+    // console.log(`Saved audio chunk to temp file for debugging`);
 
     // If this is the first audio chunk, initialize the ongoingTranscription
     const ongoingTranscriptions =
@@ -281,41 +293,40 @@ export class AiAssistantsGateway
       throw new Error('Ongoing transcriptions map not found');
     }
 
-    if (data.order === 1) {
+    if (data.order === 1 && !data.isLargeChunk) {
       // Initialize the subscriber
       if (ongoingTranscriptions.has(data.id)) {
         this.logger.error(
           `Ongoing transcription already exists for audio id: ${data.id} when receiving first audio chunk - logic error`,
         );
-        throw new Error(
-          `Ongoing transcription already exists for audio id: ${data.id} when receiving first audio chunk - logic error`,
-        );
       }
       // Create user specific rabbitmq queue if it doesn't exist
-      const consumerTag = await this.queueService.consumeAudioChunk(
+      const queueKey = await this.audioQueueService.registerProcessor(
         userId,
         data.id,
-        (
-          userId,
-          audioId,
-          audioInfos: { audioChunk: Buffer; audioMessage: AudioMessage }[],
-        ) => this.receiveAndProcessAudioChunk(userId, audioId, audioInfos),
+        (audioMessage: AudioMessage[]) =>
+          this.receiveAndProcessAudioChunk(audioMessage),
       );
+
       const ongoingAudioTranscription: OngoingAudioTranscription = {
         id: data.id,
         currentFullTranscription: '',
         currentFullTranscriptionFromLargeChunks: '',
-        transcriptionConsumerTag: consumerTag,
+        transcriptionQueueKey: queueKey,
       };
+
       ongoingTranscriptions.set(data.id, ongoingAudioTranscription);
     }
 
-    await this.queueService.publishAudioChunk(audioBuffer, {
+    const audioMessage: AudioMessage = {
       id: data.id,
       order: data.order,
       isLargeChunk: data.isLargeChunk,
       userId,
-    });
+      base64Chunk: data.chunk,
+    };
+
+    await this.audioQueueService.publishAndProcessAudio(audioMessage);
 
     return {
       event: AssistantWsEventResponseEnum.AUDIO_CHUNK_RECEIVED,
@@ -490,11 +501,14 @@ export class AiAssistantsGateway
   }
 
   private async receiveAndProcessAudioChunk(
-    userId: string,
-    audioId: string,
-    audioInfos: { audioChunk: Buffer; audioMessage: AudioMessage }[],
+    audioMessages: AudioMessage[],
   ): Promise<void> {
+    // Return if no audio messages
+    if (audioMessages.length === 0) return;
+    const userId = audioMessages[0].userId;
+    const audioId = audioMessages[0].id;
     // Get user model
+    // For debugging purposes only
     const userModel = this.userModelMap.get(userId);
     const ongoingTranscription = userModel?.ongoingTranscriptions.get(audioId);
 
@@ -519,16 +533,22 @@ export class AiAssistantsGateway
     // Build the data for audio processing
     const base64AudioDataForLargeChunks: {
       id: string;
-      base64Audios: string;
+      order: number;
+      base64Audio: string;
     }[] = [];
 
     let lastIndex = -1;
+    let isFirstChunkFromFrontEndIncluded: boolean = false;
 
-    for (const [index, audioInfo] of audioInfos.entries()) {
-      if (audioInfo.audioMessage.isLargeChunk) {
+    for (const [index, audioMessage] of audioMessages.entries()) {
+      if (audioMessage.isLargeChunk) {
+        if (audioMessage.order === 1) {
+          isFirstChunkFromFrontEndIncluded = true;
+        }
         base64AudioDataForLargeChunks.push({
-          id: audioInfo.audioMessage.id,
-          base64Audios: audioInfo.audioChunk.toString('base64'),
+          id: audioMessage.id,
+          order: audioMessage.order,
+          base64Audio: audioMessage.base64Chunk,
         });
         lastIndex = index;
       }
@@ -538,6 +558,8 @@ export class AiAssistantsGateway
       await this.audioProcessingService.combineBase64AudioChunks(
         base64AudioDataForLargeChunks,
         this.audioOverlapLength,
+        this.audioOverlapLength, // Trim this length from the start of subsequent chunks due to frontend technical limitation
+        isFirstChunkFromFrontEndIncluded,
       );
 
     if (combinedBase64AudioDataForLargeChunks !== '') {
@@ -559,20 +581,34 @@ export class AiAssistantsGateway
 
     // Process the remaining audio chunks (NON-LARGE or after the last large chunk)
     if (
-      (lastIndex >= 0 && lastIndex < audioInfos.length - 1) ||
+      (lastIndex >= 0 && lastIndex < audioMessages.length - 1) ||
       lastIndex === -1
     ) {
-      const remainingAudioInfosAndLargeChunks = audioInfos.slice(lastIndex + 1);
+      const remainingAudioInfosAndLargeChunks = audioMessages.slice(
+        lastIndex + 1,
+      );
+      if (remainingAudioInfosAndLargeChunks[0]?.order === 1) {
+        isFirstChunkFromFrontEndIncluded = true;
+      } else {
+        isFirstChunkFromFrontEndIncluded = false;
+      }
       // Perform transcription of remaining chunks
-      const base64AudioData = remainingAudioInfosAndLargeChunks.map((info) => ({
-        id: info.audioMessage.id,
-        base64Audios: info.audioChunk.toString('base64'),
+      const base64AudioData: {
+        id: string;
+        order: number;
+        base64Audio: string;
+      }[] = remainingAudioInfosAndLargeChunks.map((audioMessage) => ({
+        id: audioMessage.id,
+        order: audioMessage.order,
+        base64Audio: audioMessage.base64Chunk,
       }));
       // Trim the first few seconds if not the first chunk to avoid overlapping content and combine the audios
       const combinedBase64Audio =
         await this.audioProcessingService.combineBase64AudioChunks(
           base64AudioData,
           this.audioOverlapLength,
+          this.audioOverlapLength,
+          isFirstChunkFromFrontEndIncluded,
         );
 
       // Main processing - transcribe the audio chunk
@@ -594,9 +630,7 @@ export class AiAssistantsGateway
       this.logger.error(
         `Logic error - user model not found for userId: ${userId} when triggering analysis`,
       );
-      throw new Error(
-        `Logic error - user model not found for userId: ${userId} when triggering analysis`,
-      );
+      return;
     }
     const result = await this.geminiService.analyzeUserModel(userModel);
     // Update the user model with new fields
@@ -660,8 +694,8 @@ export class AiAssistantsGateway
       const ongoingTranscriptions = userModel.ongoingTranscriptions;
       if (ongoingTranscriptions !== undefined) {
         for (const [, ongoingTranscription] of ongoingTranscriptions) {
-          await this.queueService.cancelConsumer(
-            ongoingTranscription.transcriptionConsumerTag,
+          await this.audioQueueService.cleanupQueue(
+            ongoingTranscription.transcriptionQueueKey,
           );
         }
       }

@@ -19,7 +19,7 @@ export interface OngoingAudioTranscription {
   id: string;
   currentFullTranscription: string;
   currentFullTranscriptionFromLargeChunks: string;
-  transcriptionConsumerTag: string; // Id of the rabbitmq consumer that processes audio chunks for this transcription
+  transcriptionQueueKey: string; // Id of the rabbitmq consumer that processes audio chunks for this transcription
 }
 
 export interface OutputField {

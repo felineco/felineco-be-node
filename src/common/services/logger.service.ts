@@ -42,17 +42,32 @@ export class AppLoggerService implements LoggerService {
   }
 
   error(message: any, trace?: string, contextOverride?: string) {
-    if (typeof message === 'object') {
-      message = this.formatObject(message);
+    // Case message is an Error object
+    if (message instanceof Error) {
+      this.logger.error(
+        message.message,
+        message.stack +
+          (trace !== undefined ? `\nAdditional trace: ${trace}` : ''),
+        contextOverride ?? this.context,
+      );
+    } else {
+      if (typeof message === 'object') {
+        message = this.formatObject(message);
+      }
+      this.logger.error(message, trace, contextOverride ?? this.context);
     }
-    this.logger.error(message, trace, contextOverride ?? this.context);
   }
 
   warn(message: any, contextOverride?: string) {
-    if (typeof message === 'object') {
-      message = this.formatObject(message);
+    // Case message is an Error object
+    if (message instanceof Error) {
+      this.logger.warn(message.message, contextOverride ?? this.context);
+    } else {
+      if (typeof message === 'object') {
+        message = this.formatObject(message);
+      }
+      this.logger.warn(message, contextOverride ?? this.context);
     }
-    this.logger.warn(message, contextOverride ?? this.context);
   }
 
   debug(message: any, contextOverride?: string) {

@@ -109,13 +109,7 @@ export class AiAssistantsController {
       })
       .catch((error) => {
         // Log here as the error won't be caught by global handler
-        if (error instanceof Error) {
-          this.logger.error(
-            `[${req.method}] ${req.url} - Status: 500 - Unhandled Error: ${error.message}`,
-            error.stack,
-          );
-        }
-        this.logger.error(`An error occurred: ${JSON.stringify(error)}`);
+        this.logger.error(error);
       });
   }
 }

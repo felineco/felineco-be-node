@@ -33,6 +33,7 @@ import { RolesModule } from './modules/roles/roles.module';
 import { S3Module } from './modules/s3/s3.module';
 import { SeedingModule } from './modules/seeding/seeding.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { TestModule } from './modules/test/test.module';
 
 @Module({
@@ -66,6 +67,7 @@ import { TestModule } from './modules/test/test.module';
     CommonServicesModule,
     SeedingModule,
     HealthModule,
+    SettingsModule,
     // Test Module for dev to play around
     TestModule,
     // AI Modules
